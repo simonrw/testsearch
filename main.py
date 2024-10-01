@@ -78,6 +78,7 @@ class Visitor:
                 case "function_definition":
                     self.handle_function_definition(child, class_name=class_name)
                 case "class_definition":
+                    # explicitly reset the class definition
                     self.handle_class_definition(child)
                 case "decorator" | "comment":
                     continue
@@ -111,6 +112,12 @@ class Visitor:
             match child.type:
                 case "decorated_definition":
                     self.handle_decorated_definition(child, class_name=class_name)
+                case "function_definition":
+                    self.handle_function_definition(child, class_name=class_name)
+                case "expression_statement" | "comment":
+                    continue
+                case other:
+                    LOG.debug("unhandled type in handle_class_block: '%s'", other)
 
     def visit(self):
         with open(self.filename, "rb") as infile:
