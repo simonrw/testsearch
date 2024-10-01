@@ -9,10 +9,6 @@ import subprocess as sp
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 
 PY_LANGUAGE = Language(tspython.language())
-arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument("-m", "--method", choices=["serial", "map", "apply"], default="map")
-arg_parser.add_argument("-p", "--pool", choices=["threads", "processes"], default="processes")
-args = arg_parser.parse_args()
 
 parser = Parser(PY_LANGUAGE)
 
@@ -21,6 +17,8 @@ def find_test_files(root: str) -> list[str]:
     cmd = [
         "fd",
         "-0",
+        "--type",
+        "f",
         r"test[a-z0-9_]+\.py$",
         root,
     ]
@@ -132,17 +130,21 @@ def extract_tests(path: str) -> list[TestCase]:
 
 
 if __name__ == "__main__":
-    files = [
-        filename.strip()
-        for filename in find_test_files("/Users/simon/work/localstack/localstack/tests")
-        if filename.strip()
-    ] + [
-        filename.strip()
-        for filename in find_test_files(
-            "/Users/simon/work/localstack/localstack-ext/localstack-pro-core/tests"
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("root", nargs="+")
+    arg_parser.add_argument(
+        "-m", "--method", choices=["serial", "map", "apply"], default="map"
+    )
+    arg_parser.add_argument(
+        "-p", "--pool", choices=["threads", "processes"], default="processes"
+    )
+    args = arg_parser.parse_args()
+
+    files = []
+    for root in args.root:
+        files.extend(
+            filename.strip() for filename in find_test_files(root) if filename.strip()
         )
-        if filename.strip()
-    ]
 
     if args.pool == "threads":
         PoolCls = ThreadPoolExecutor
