@@ -6,11 +6,12 @@ import tree_sitter_python as tspython
 from tree_sitter import Language, Node, Parser
 import argparse
 import subprocess as sp
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 
 PY_LANGUAGE = Language(tspython.language())
 arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument("method", choices=["serial", "map", "apply"])
+arg_parser.add_argument("-m", "--method", choices=["serial", "map", "apply"], default="map")
+arg_parser.add_argument("-p", "--pool", choices=["threads", "processes"], default="processes")
 args = arg_parser.parse_args()
 
 parser = Parser(PY_LANGUAGE)
@@ -130,36 +131,44 @@ def extract_tests(path: str) -> list[TestCase]:
     return visitor.tests
 
 
-files = [
-    filename.strip()
-    for filename in find_test_files("/Users/simon/work/localstack/localstack/tests")
-    if filename.strip()
-] + [
-    filename.strip()
-    for filename in find_test_files(
-        "/Users/simon/work/localstack/localstack-ext/localstack-pro-core/tests"
-    )
-    if filename.strip()
-]
+if __name__ == "__main__":
+    files = [
+        filename.strip()
+        for filename in find_test_files("/Users/simon/work/localstack/localstack/tests")
+        if filename.strip()
+    ] + [
+        filename.strip()
+        for filename in find_test_files(
+            "/Users/simon/work/localstack/localstack-ext/localstack-pro-core/tests"
+        )
+        if filename.strip()
+    ]
 
-match args.method:
-    case "serial":
-        for file in files:
-            for test in extract_tests(file):
-                print(test.for_pytest())
-    case "map":
-        with ThreadPoolExecutor() as pool:
-            batches = pool.map(extract_tests, files)
-            for batch in batches:
-                for test in batch:
-                    print(test.for_pytest())
-    case "apply":
-        with ThreadPoolExecutor() as pool:
-            futures = []
+    if args.pool == "threads":
+        PoolCls = ThreadPoolExecutor
+    elif args.pool == "processes":
+        PoolCls = ProcessPoolExecutor
+    else:
+        raise NotImplementedError(args.pool_cls)
+
+    match args.method:
+        case "serial":
             for file in files:
-                fut = pool.submit(extract_tests, file)
-                futures.append(fut)
-
-            for fut in as_completed(futures):
-                for test in fut.result():
+                for test in extract_tests(file):
                     print(test.for_pytest())
+        case "map":
+            with PoolCls() as pool:
+                batches = pool.map(extract_tests, files)
+                for batch in batches:
+                    for test in batch:
+                        print(test.for_pytest())
+        case "apply":
+            with PoolCls() as pool:
+                futures = []
+                for file in files:
+                    fut = pool.submit(extract_tests, file)
+                    futures.append(fut)
+
+                for fut in as_completed(futures):
+                    for test in fut.result():
+                        print(test.for_pytest())
