@@ -5,6 +5,7 @@ mkShell {
     python3
     python3Packages.venvShellHook
     uv
+    hyperfine
   ];
 
   venvDir = ".venv";
