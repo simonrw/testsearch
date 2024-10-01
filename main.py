@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
+import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+import logging
+import subprocess as sp
 
 from dataclasses import dataclass
-import tree_sitter_python as tspython
 from tree_sitter import Language, Node, Parser
-import argparse
-import subprocess as sp
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+import tree_sitter_python as tspython
+
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
 
 PY_LANGUAGE = Language(tspython.language())
 
@@ -73,7 +77,14 @@ class Visitor:
             match child.type:
                 case "function_definition":
                     self.handle_function_definition(child, class_name=class_name)
-                case _:
+                case "class_definition":
+                    self.handle_class_definition(child)
+                case "decorator" | "comment":
+                    continue
+                case other:
+                    LOG.debug(
+                        "unhandled case in handle_decorated_definition: '%s'", other
+                    )
                     continue
 
     def handle_class_definition(self, node: Node):
@@ -83,10 +94,17 @@ class Visitor:
         assert class_name_node.text is not None
         class_name = class_name_node.text.decode()
 
+        if not class_name.startswith("Test"):
+            return
+
         for child in node.children[2:]:
             match child.type:
                 case "block":
                     self.handle_class_block(child, class_name=class_name)
+                case ":" | "argument_list" | "comment":
+                    continue
+                case other:
+                    LOG.debug("unhandled case in class definition: '%s'", other)
 
     def handle_class_block(self, node: Node, class_name: str):
         for child in node.children:
@@ -138,7 +156,13 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "-p", "--pool", choices=["threads", "processes"], default="processes"
     )
+    arg_parser.add_argument("-v", "--verbose", action="count", default=0)
     args = arg_parser.parse_args()
+
+    if args.verbose == 1:
+        LOG.setLevel(logging.INFO)
+    elif args.verbose > 1:
+        LOG.setLevel(logging.DEBUG)
 
     files = []
     for root in args.root:
