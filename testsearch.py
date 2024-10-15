@@ -154,7 +154,7 @@ def extract_tests(path: str) -> list[TestCase]:
     return visitor.tests
 
 
-if __name__ == "__main__":
+def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("root", nargs="+")
     arg_parser.add_argument(
@@ -205,3 +205,7 @@ if __name__ == "__main__":
                 for fut in as_completed(futures):
                     for test in fut.result():
                         print(test.for_pytest())
+
+
+if __name__ == "__main__":
+    main()
