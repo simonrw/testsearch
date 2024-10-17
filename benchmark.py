@@ -3,26 +3,27 @@
 import argparse
 import os
 import subprocess as sp
+import sys
 
 
 COMMANDS = [
     "cargo run --release -- {paths}",
-    "./main.py --method serial {paths}",
-    "./main.py --method map --pool threads {paths}",
-    "./main.py --method apply --pool threads {paths}",
-    "./main.py --method map --pool processes {paths}",
-    "./main.py --method apply --pool processes {paths}",
+    "{interpreter_path} ./testsearch.py --method serial {paths}",
+    "{interpreter_path} ./testsearch.py --method map --pool threads {paths}",
+    "{interpreter_path} ./testsearch.py --method apply --pool threads {paths}",
+    "{interpreter_path} ./testsearch.py --method map --pool processes {paths}",
+    "{interpreter_path} ./testsearch.py --method apply --pool processes {paths}",
 ]
 
 
-def run_benchmark(paths):
+def run_benchmark(paths: list[str]):
     cmd = [
         "hyperfine",
         "--warmup",
         "3",
     ]
     for command in COMMANDS:
-        cmd.append(command.format(paths=" ".join(paths)))
+        cmd.append(command.format(paths=" ".join(paths), interpreter_path=sys.executable))
 
     os.execvp(cmd[0], cmd)
 
