@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 from __future__ import annotations
+import json
 import argparse
 from collections.abc import Generator, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 import logging
+from pathlib import Path
 import subprocess as sp
 import multiprocessing as mp
 
 from dataclasses import dataclass
+import sys
 from typing import TypeVar
 from tree_sitter import Language, Node, Parser
 import tree_sitter_python as tspython
@@ -28,7 +31,7 @@ def find_test_files(root: str) -> list[str]:
         "-0",
         "--type",
         "f",
-        r"test[a-z0-9_]+\.py$",
+        r"test_[a-z0-9_]+\.py$",
         root,
     ]
     res = sp.check_output(cmd)
@@ -145,6 +148,7 @@ class Visitor:
                     | "if_statement"
                     | "try_statement"
                     | "assert_statement"
+                    | "future_import_statement"
                 ):
                     continue
                 case other:
@@ -213,14 +217,56 @@ def iter_tests(
             raise NotImplementedError(f"Method '{other}' not implemented")
 
 
+class State:
+    state: dict[str, dict[str, str]]
+
+    def __init__(self, root: Path):
+        root.mkdir(exist_ok=True, parents=True)
+        self.cache_file = root / "cache.json"
+        self.working_dir = Path.cwd()
+
+        if self.cache_file.is_file():
+            with self.cache_file.open() as infile:
+                self.state = json.load(infile)
+
+            assert isinstance(self.state, dict)
+        else:
+            self.state = {"last_test": {}}
+            with self.cache_file.open("w") as outfile:
+                json.dump(self.state, outfile, indent=2)
+
+    @property
+    def last_test(self) -> str | None:
+        return self.state["last_test"].get(self._working_dir_str(), None)
+
+    @last_test.setter
+    def last_test(self, last_test: str):
+        self.state["last_test"][self._working_dir_str()] = last_test
+        self._flush()
+
+    def _flush(self):
+        with self.cache_file.open("w") as outfile:
+            json.dump(self.state, outfile, indent=2)
+
+    def _working_dir_str(self) -> str:
+        return str(self.working_dir)
+
+
 def main():
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("root", nargs="+")
+    arg_parser.add_argument("root", nargs="*")
     arg_parser.add_argument(
         "-m", "--method", choices=["serial", "map", "apply"], default="map"
     )
     arg_parser.add_argument(
         "-p", "--pool", choices=["threads", "processes"], default="processes"
+    )
+    arg_parser.add_argument(
+        "-r",
+        "--rerun-last",
+        action="store_true",
+        default=False,
+        help="Re-run previously selected test",
     )
     arg_parser.add_argument(
         "-n",
@@ -237,11 +283,33 @@ def main():
     elif args.verbose > 1:
         LOG.setLevel(logging.DEBUG)
 
+    cache_root = Path.home().joinpath(".cache", "testsearch")
+    state = State(cache_root)
+
+    if args.rerun_last:
+        if state.last_test is None:
+            print("No last test recorded for this directory", file=sys.stderr)
+            sys.exit(1)
+
+        print(state.last_test)
+        sys.exit(0)
+
+    roots = args.root
+    if not roots:
+        # default to cwd
+        roots = [
+            str(Path.cwd()),
+        ]
+
     files = []
-    for root in args.root:
+    for root in roots:
         files.extend(
             filename.strip() for filename in find_test_files(root) if filename.strip()
         )
+
+    if len(files) == 0:
+        print("No test files found", file=sys.stderr)
+        sys.exit(1)
 
     tests_iter = iter_tests(files, args.method, args.pool)
     if args.no_fuzzy_selection:
@@ -250,6 +318,7 @@ def main():
         return
 
     chosen_test = iterfzf(tests_iter)
+    state.last_test = chosen_test
     print(chosen_test)
 
 
