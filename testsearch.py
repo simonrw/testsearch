@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 
+from __future__ import annotations
 import argparse
+from collections.abc import Generator, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 import logging
 import subprocess as sp
+import multiprocessing as mp
 
 from dataclasses import dataclass
+from typing import TypeVar
 from tree_sitter import Language, Node, Parser
 import tree_sitter_python as tspython
+from iterfzf import iterfzf
 
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
@@ -154,6 +159,60 @@ def extract_tests(path: str) -> list[TestCase]:
     return visitor.tests
 
 
+# def select(
+
+T = TypeVar("T")
+
+
+def generate(max: int, output: mp.Queue[str]):
+    import time
+
+    for i in range(max):
+        output.put(str(i))
+        time.sleep(1)
+
+
+def iterqueue(queue: mp.Queue[T]) -> Generator[T, None, None]:
+    while True:
+        value = queue.get()
+        yield value
+
+
+def iter_tests(
+    files: Iterable[str], method: str, pool_type: str
+) -> Generator[str, None, None]:
+    if pool_type == "threads":
+        PoolCls = ThreadPoolExecutor
+    elif pool_type == "processes":
+        PoolCls = ProcessPoolExecutor
+    else:
+        raise NotImplementedError(pool_type)
+
+    match method:
+        case "serial":
+            for file in files:
+                for test in extract_tests(file):
+                    yield test.for_pytest()
+        case "map":
+            with PoolCls() as pool:
+                batches = pool.map(extract_tests, files)
+                for batch in batches:
+                    for test in batch:
+                        yield test.for_pytest()
+        case "apply":
+            with PoolCls() as pool:
+                futures = []
+                for file in files:
+                    fut = pool.submit(extract_tests, file)
+                    futures.append(fut)
+
+                for fut in as_completed(futures):
+                    for test in fut.result():
+                        yield test.for_pytest()
+        case other:
+            raise NotImplementedError(f"Method '{other}' not implemented")
+
+
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("root", nargs="+")
@@ -162,6 +221,13 @@ def main():
     )
     arg_parser.add_argument(
         "-p", "--pool", choices=["threads", "processes"], default="processes"
+    )
+    arg_parser.add_argument(
+        "-n",
+        "--no-fuzzy-selection",
+        action="store_true",
+        default=False,
+        help="Disable selecting a single test with `fzf` and just print all found tests",
     )
     arg_parser.add_argument("-v", "--verbose", action="count", default=0)
     args = arg_parser.parse_args()
@@ -177,36 +243,14 @@ def main():
             filename.strip() for filename in find_test_files(root) if filename.strip()
         )
 
-    if args.pool == "threads":
-        PoolCls = ThreadPoolExecutor
-    elif args.pool == "processes":
-        PoolCls = ProcessPoolExecutor
-    else:
-        raise NotImplementedError(args.pool_cls)
+    tests_iter = iter_tests(files, args.method, args.pool)
+    if args.no_fuzzy_selection:
+        for test in tests_iter:
+            print(test)
+        return
 
-    match args.method:
-        case "serial":
-            for file in files:
-                for test in extract_tests(file):
-                    print(test.for_pytest())
-        case "map":
-            with PoolCls() as pool:
-                batches = pool.map(extract_tests, files)
-                for batch in batches:
-                    for test in batch:
-                        print(test.for_pytest())
-        case "apply":
-            with PoolCls() as pool:
-                futures = []
-                for file in files:
-                    fut = pool.submit(extract_tests, file)
-                    futures.append(fut)
-
-                for fut in as_completed(futures):
-                    for test in fut.result():
-                        print(test.for_pytest())
-        case other:
-            raise NotImplementedError(f"Method '{other}' not implemented")
+    chosen_test = iterfzf(tests_iter)
+    print(chosen_test)
 
 
 if __name__ == "__main__":
