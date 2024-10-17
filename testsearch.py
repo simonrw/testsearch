@@ -205,6 +205,8 @@ def main():
                 for fut in as_completed(futures):
                     for test in fut.result():
                         print(test.for_pytest())
+        case other:
+            raise NotImplementedError(f"Method '{other}' not implemented")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,14 @@ dependencies = [
 [tool.setuptools]
 py-modules = ["testsearch"]
 
+[tool.basedpyright]
+reportUnusedCallResult = false
+reportAny = false
+reportOptionalMemberAccess = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+
 [project.scripts]
 testsearch = "testsearch:main"
 
