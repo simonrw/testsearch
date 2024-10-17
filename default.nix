@@ -12,7 +12,9 @@ python3Packages.buildPythonApplication {
     setuptools
     tree-sitter
     tree-sitter-python
-    iterfzf
+    (iterfzf.overrideAttrs (prev:  {
+      doInstallCheck = false;
+    }))
   ];
 
   propagatedBuildInputs = [
