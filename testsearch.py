@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import json
+import shutil
 import argparse
 from collections.abc import Generator, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
@@ -317,7 +318,19 @@ def main():
             print(test)
         return
 
-    chosen_test = iterfzf(tests_iter)
+    def run_fzf(iter: Iterable[str]) -> str:
+        fzf_executable = shutil.which("fzf")
+        if fzf_executable is None:
+            print("Could not find fzf on $PATH", file=sys.stderr)
+            for test in iter:
+                print(test)
+            sys.exit(0)
+
+        chosen_test = iterfzf(iter, executable=Path(fzf_executable))
+        return chosen_test
+
+
+    chosen_test = run_fzf(tests_iter)
     state.last_test = chosen_test
     print(chosen_test)
 
