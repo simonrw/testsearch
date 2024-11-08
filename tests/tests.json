@@ -1,0 +1,1446 @@
+[
+    {
+        "type": "Dir",
+        "title": "localstack",
+        "children": [
+            {
+                "type": "Package",
+                "title": "tests",
+                "children": [
+                    {
+                        "type": "Package",
+                        "title": "integration",
+                        "children": [
+                            {
+                                "type": "Package",
+                                "title": "aws",
+                                "children": [
+                                    {
+                                        "type": "Module",
+                                        "title": "test_app.py",
+                                        "children": [
+                                            {
+                                                "type": "Class",
+                                                "title": "TestExceptionHandlers",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_internal_failure_handler_http_errors"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_router_handler_get_http_errors"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_router_handler_patch_http_errors"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_router_handler_get_unexpected_errors"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_404_unfortunately_detected_as_s3_request"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestWerkzeugIntegration",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_response_close_handlers_called_with_router"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_chunked_response_streaming"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_chunked_request_streaming"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_raw_header_handling"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestHttps",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_default_cert_works"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestWebSocketIntegration",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_websockets_served_through_edge_router"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_return_response"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_websocket_reject_through_edge_router"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_ssl_websockets"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestHTTP2Support",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_http2_http"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_http2_https"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_http2_https_localhost"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Package",
+                                "title": "docker_utils",
+                                "children": [
+                                    {
+                                        "type": "Module",
+                                        "title": "test_docker.py",
+                                        "children": [
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerClient",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_system_info[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_system_id[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_lifecycle_commands[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_remove_removes_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_non_existing_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_not_running_raises_exception[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_workdir[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_env[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_env_deletion[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_error_in_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_with_max_env_vars[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_error[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stop_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_restart_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pause_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_unpause_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_remove_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_start_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_not_available[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_with_init[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_with_init[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_network_multiple_networks[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_network_wrong_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_host_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_network_non_existent_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_host_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_port_mapping[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_exposed_ports[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_volume[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_container_volumes[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_container_volumes_with_no_volumes[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_non_existent_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_container_without_target_filename[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_directory_into_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_container_with_existing_target[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_directory_content_into_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_directory_structure_into_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_network_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_filter_non_existing[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_filter_illegal_filter[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_filter[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_with_podman_image_ref_format[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_entrypoint[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_entrypoint_non_existing_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_entrypoint_not_pulled_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_command[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_command_not_pulled_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_command_non_existing_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_stdout[CmdDockerClient-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_stdout[CmdDockerClient-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_file[CmdDockerClient-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_file[CmdDockerClient-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_with_stdin[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_stdin[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_stdin_stdout_stderr[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_detached_with_logs[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_logs_non_existent_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_logs[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stream_logs_non_existent_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stream_logs[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_docker_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_non_existent_docker_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_docker_image_with_tag[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_docker_image_with_hash[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_automatic_pull[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_push_non_existent_docker_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_push_access_denied[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_push_invalid_registry[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_tag_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_tag_non_existing_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[CmdDockerClient-True-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[CmdDockerClient-True-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[CmdDockerClient-False-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[CmdDockerClient-False-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_non_existent_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_running_container_names[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_is_container_running[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_image_names[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_name[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_name_not_existing[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_id[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_id_not_existing[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_network_non_existent_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_container_to_different_file[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_container_into_directory[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_non_existent_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_non_existing_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_system_info[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_system_id[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_lifecycle_commands[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_remove_removes_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_non_existing_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_not_running_raises_exception[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_workdir[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_env[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_env_deletion[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_error_in_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_with_max_env_vars[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_error[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stop_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_restart_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pause_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_unpause_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_remove_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_start_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_not_available[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_with_init[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_with_init[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_network_multiple_networks[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_network_wrong_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_host_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_for_network_non_existent_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_host_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_port_mapping[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_exposed_ports[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_with_volume[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_container_volumes[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_container_volumes_with_no_volumes[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_non_existent_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_container_without_target_filename[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_directory_into_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_into_container_with_existing_target[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_directory_content_into_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_directory_structure_into_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_network_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_filter_non_existing[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_filter_illegal_filter[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_filter[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_with_podman_image_ref_format[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_entrypoint[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_entrypoint_non_existing_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_entrypoint_not_pulled_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_command[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_command_not_pulled_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_command_non_existing_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_stdout[SdkDockerClient-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_stdout[SdkDockerClient-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_file[SdkDockerClient-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_start_container_with_stdin_to_file[SdkDockerClient-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_with_stdin[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_stdin[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_exec_in_container_with_stdin_stdout_stderr[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_detached_with_logs[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_logs_non_existent_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_logs[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stream_logs_non_existent_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stream_logs[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_docker_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_non_existent_docker_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_docker_image_with_tag[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_pull_docker_image_with_hash[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_automatic_pull[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_push_non_existent_docker_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_push_access_denied[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_push_invalid_registry[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_tag_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_tag_non_existing_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[SdkDockerClient-True-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[SdkDockerClient-True-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[SdkDockerClient-False-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_build_image[SdkDockerClient-False-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_non_existent_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_running_container_names[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_is_container_running[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_image_names[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_name[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_name_not_existing[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_id[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_id_not_existing[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_image[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_inspect_network_non_existent_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_container_to_different_file[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_container_into_directory[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_copy_from_non_existent_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_non_existing_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip[SdkDockerClient]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestRunWithAdditionalArgs",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_add_host[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_add_dns[CmdDockerClient-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_add_dns[CmdDockerClient-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_random_port[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_ulimit[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_env_files[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_add_host[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_add_dns[SdkDockerClient-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_add_dns[SdkDockerClient-False]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_random_port[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_ulimit[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_with_additional_arguments_env_files[SdkDockerClient]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerImages",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_commit_creates_image_from_running_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_commit_image_raises_for_nonexistent_container[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_remove_image_raises_for_nonexistent_image[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_commit_creates_image_from_running_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_commit_image_raises_for_nonexistent_container[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_remove_image_raises_for_nonexistent_image[SdkDockerClient]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerNetworking",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_network_lifecycle[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_with_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_set_container_workdir[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_network_with_link_local_address[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_nonexistent_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_disconnect_container_from_nonexistent_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_nonexistent_container_to_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_disconnect_nonexistent_container_from_network[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_network_with_alias_and_disconnect[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_network_lifecycle[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get_container_ip_with_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_set_container_workdir[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_network_with_link_local_address[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_nonexistent_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_disconnect_container_from_nonexistent_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_nonexistent_container_to_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_disconnect_nonexistent_container_from_network[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_connect_container_to_network_with_alias_and_disconnect[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_sdk_timeout_seconds"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_sdk_no_retries"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_sdk_retries_on_init"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_sdk_retries_after_init"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerLogging",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_logging_none_disables_logs[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_logging_fluentbit[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_logging_none_disables_logs[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_docker_logging_fluentbit[SdkDockerClient]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerPermissions",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_with_cap_add[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_with_cap_drop[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_with_sec_opt[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_with_cap_add[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_with_cap_drop[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_with_sec_opt[SdkDockerClient]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerPorts",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_reserve_container_port[CmdDockerClient-None]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_reserve_container_port[CmdDockerClient-tcp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_reserve_container_port[CmdDockerClient-udp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_port_can_be_bound[CmdDockerClient-None]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_port_can_be_bound[CmdDockerClient-tcp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_port_can_be_bound[CmdDockerClient-udp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_reserve_container_port[SdkDockerClient-None]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_reserve_container_port[SdkDockerClient-tcp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_reserve_container_port[SdkDockerClient-udp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_port_can_be_bound[SdkDockerClient-None]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_port_can_be_bound[SdkDockerClient-tcp]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_container_port_can_be_bound[SdkDockerClient-udp]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestDockerLabels",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_with_labels[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_with_labels[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_with_labels[CmdDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_create_container_with_labels[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_run_container_with_labels[SdkDockerClient]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_list_containers_with_labels[SdkDockerClient]"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Package",
+                                "title": "services",
+                                "children": [
+                                    {
+                                        "type": "Module",
+                                        "title": "test_internal.py",
+                                        "children": [
+                                            {
+                                                "type": "Class",
+                                                "title": "TestInitScriptsResource",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_stages_have_completed"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_query_nonexisting_stage"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_query_individual_stage_completed[boot-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_query_individual_stage_completed[start-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_query_individual_stage_completed[ready-True]"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_query_individual_stage_completed[shutdown-False]"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestHealthResource",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get"
+                                                    },
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_head"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Class",
+                                                "title": "TestInfoEndpoint",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_get"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Module",
+                                "title": "test_config_endpoint.py",
+                                "children": [
+                                    {
+                                        "type": "Function",
+                                        "title": "test_config_endpoint"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Module",
+                                "title": "test_config_service.py",
+                                "children": [
+                                    {
+                                        "type": "Class",
+                                        "title": "TestConfigService",
+                                        "children": [
+                                            {
+                                                "type": "Function",
+                                                "title": "test_put_configuration_recorder"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_put_delivery_channel"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Module",
+                                "title": "test_forwarder.py",
+                                "children": [
+                                    {
+                                        "type": "Function",
+                                        "title": "test_forwarding_fallback_dispatcher"
+                                    },
+                                    {
+                                        "type": "Function",
+                                        "title": "test_forwarding_fallback_dispatcher_avoid_fallback"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Module",
+                                "title": "test_security.py",
+                                "children": [
+                                    {
+                                        "type": "Class",
+                                        "title": "TestCSRF",
+                                        "children": [
+                                            {
+                                                "type": "Function",
+                                                "title": "test_CSRF"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_default_cors_headers"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_internal_route_cors_headers[/_localstack/health]"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_cors_s3_override"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_disable_cors_checks"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_disable_cors_headers"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_additional_allowed_origins"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_no_cors_without_origin_header"
+                                            },
+                                            {
+                                                "type": "Function",
+                                                "title": "test_cors_apigw_not_applied"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Module",
+                                "title": "test_stores.py",
+                                "children": [
+                                    {
+                                        "type": "Function",
+                                        "title": "test_nonstandard_regions"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Package",
+                                "title": "utils",
+                                "children": [
+                                    {
+                                        "type": "Module",
+                                        "title": "test_diagnose.py",
+                                        "children": [
+                                            {
+                                                "type": "Function",
+                                                "title": "test_diagnose_resource"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
