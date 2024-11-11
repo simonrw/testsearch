@@ -1,0 +1,5 @@
+pytest
+pytest-collect-formatter
+pytest-pudb
+ipython
+-e tests/localstack[test]

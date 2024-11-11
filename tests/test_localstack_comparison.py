@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import os
 import json
 import subprocess as sp
 import tempfile
@@ -9,13 +10,17 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DEFAULTS_TEST_PATH = PROJECT_ROOT / "tests" / "localstack" / "tests"
+BUILT_BINARY_PATH = Path(os.environ["CARGO_TARGET_DIR"]) / "release" / "testsearch"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def build():
+    sp.check_call(["cargo", "build", "--release"])
 
 
 def run_search(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
-    script_path = PROJECT_ROOT / "testsearch.py"
-    assert script_path.is_file()
-
-    cmd = [sys.executable, script_path, "-n", str(root)]
+    assert BUILT_BINARY_PATH.is_file()
+    cmd = [BUILT_BINARY_PATH, "-n", str(root)]
     output = sp.check_output(cmd)
 
     results = []
@@ -26,6 +31,7 @@ def run_search(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
 
 
 Node = list | dict
+
 
 def extract_tests(root: Node, tests: list[Any] | None):
     if tests is None:
@@ -46,7 +52,17 @@ def extract_tests(root: Node, tests: list[Any] | None):
 
 def pytest_collect_items(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
     with tempfile.NamedTemporaryFile() as tfile:
-        cmd = [sys.executable, "-m", "pytest", "--collect-only", "--collect-format", "json", "--collect-output-file", str(tfile.name), str(root)]
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "--collect-format",
+            "json",
+            "--collect-output-file",
+            str(tfile.name),
+            str(root),
+        ]
         sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
         tfile.seek(0)
@@ -58,13 +74,16 @@ def pytest_collect_items(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
     return tests
 
 
-@pytest.mark.parametrize("subdir", [
-    "aws",
-    "bootstrap",
-    "cli",
-    "integration",
-    "unit",
-])
+@pytest.mark.parametrize(
+    "subdir",
+    [
+        "aws",
+        "bootstrap",
+        "cli",
+        "integration",
+        "unit",
+    ],
+)
 def test_something(subdir: str):
     root = DEFAULTS_TEST_PATH / subdir
     pytest_tests = pytest_collect_items(root)

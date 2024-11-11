@@ -1,37 +1,14 @@
 {pkgs ? import <nixpkgs> {}}:
-with pkgs; let
-  pytest-collect-formatter = python3Packages.buildPythonPackage rec {
-    pname = "pytest-collect-formatter";
-    version = "0.4.0";
-
-    src = fetchPypi {
-      inherit pname version;
-      hash = "sha256-jYp3qn5x7ZdFscIBckjZ7ksRiGGanSaLNNtxSvA6FAo=";
-    };
-
-    buildInputs = with python3Packages; [
-      pip
-    ];
-
-    propagatedBuildInputs = with python3Packages; [
-      dicttoxml
-      pyyaml
-    ];
-  };
-
-  custom-python = python3.withPackages (ps:
-    with ps; [
-      pytest
-      pytest-collect-formatter
-    ]);
-in
+with pkgs;
   mkShell rec {
     packages =
       [
         hyperfine
         rustup
         clang
-        custom-python
+        python3Packages.venvShellHook
+        uv
+        ruff
       ]
       ++ lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
         libiconv
@@ -40,6 +17,7 @@ in
         mold
       ];
 
+    venvDir = ".venv";
     shellHook = ''
       export RUST_BUILD_BASE="$HOME/.cache/rust-builds"
       WORKSPACE_ROOT=$(cargo metadata --no-deps --offline 2>/dev/null | jq -r ".workspace_root")
@@ -47,6 +25,10 @@ in
 
       # Run cargo with target set to $RUST_BUILD_BASE/$PACKAGE_BASENAME
       export CARGO_TARGET_DIR="$RUST_BUILD_BASE/$PACKAGE_BASENAME"
+    '';
+
+    postShellHook = ''
+      export VENV_DIR=$VIRTUAL_ENV
     '';
 
     env = {
