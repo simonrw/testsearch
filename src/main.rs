@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    collections::HashMap,
     fmt, fs, io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -10,6 +11,7 @@ use clap::Parser;
 use color_eyre::eyre::{self, Context};
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
 use skim::prelude::*;
 use tracing_subscriber::EnvFilter;
 use tree_sitter::Node;
@@ -19,6 +21,58 @@ struct Args {
     root: Vec<PathBuf>,
     #[clap(short, long)]
     no_fizzy_selection: bool,
+    #[clap(short, long)]
+    rerun_last: bool,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct PersistedState {
+    last_test: HashMap<PathBuf, String>,
+}
+
+struct State {
+    persisted: PersistedState,
+    cache_file: PathBuf,
+}
+
+impl State {
+    fn new(cache_root: impl AsRef<Path>) -> eyre::Result<Self> {
+        let cache_root = cache_root.as_ref();
+        std::fs::create_dir_all(cache_root).wrap_err("creating cache dir")?;
+        let cache_file = cache_root.join("cache.json");
+
+        let persisted_state = if cache_file.is_file() {
+            let mut f = std::fs::File::open(&cache_file).wrap_err("opening existing cache file")?;
+            serde_json::from_reader(&mut f).wrap_err("decoding existing cache file")?
+        } else {
+            PersistedState::default()
+        };
+
+        Ok(Self {
+            persisted: persisted_state,
+            cache_file,
+        })
+    }
+
+    fn last_test(&self) -> Option<&String> {
+        let here = std::env::current_dir().ok()?;
+        self.persisted.last_test.get(&here)
+    }
+
+    fn set_last_test(&mut self, last_test: impl Into<String>) -> eyre::Result<()> {
+        let here = std::env::current_dir().wrap_err("locating current directory")?;
+        self.persisted.last_test.insert(here, last_test.into());
+        self.flush().wrap_err("flushing cache changes to disk")?;
+        Ok(())
+    }
+
+    fn flush(&self) -> eyre::Result<()> {
+        let mut outfile =
+            std::fs::File::create(&self.cache_file).wrap_err("creating cache file")?;
+        serde_json::to_writer(&mut outfile, &self.persisted)
+            .wrap_err("writing state to cache file")?;
+        Ok(())
+    }
 }
 
 fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Result<()> {
@@ -43,7 +97,6 @@ fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Resul
 }
 
 fn main() -> eyre::Result<()> {
-    // tracing_subscriber::fmt::init();
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(io::stderr)
@@ -51,6 +104,22 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let args = Args::parse();
+
+    let cache_root = dirs::cache_dir()
+        .map(|p| p.join("testsearch"))
+        .ok_or_else(|| eyre::eyre!("locating cache dir on system"))?;
+    tracing::debug!(cache_root = %cache_root.display(), "using cache root dir");
+    let mut state = State::new(cache_root).wrap_err("constructing persistent state")?;
+
+    if args.rerun_last {
+        match state.last_test() {
+            Some(name) => {
+                println!("{name}");
+                return Ok(());
+            }
+            None => eyre::bail!("No last test recorded"),
+        }
+    }
 
     let (files_tx, files_rx) = unbounded();
 
@@ -95,14 +164,32 @@ fn main() -> eyre::Result<()> {
     }
 
     // perform fuzzy search
-    let skim_options = SkimOptions::default();
-    let selected_items = skim::Skim::run_with(&skim_options, Some(test_rx))
-        .map(|out| out.selected_items)
-        .unwrap_or_default();
+    let skim_options = SkimOptionsBuilder::default()
+        .multi(false)
+        .build()
+        .expect("invalid skim options");
+    let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
+        .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
 
-    for item in selected_items {
-        println!("{}", item.text());
+    if search_result.is_abort {
+        tracing::info!("no tests selected");
+        return Ok(());
     }
+
+    let selected_items = search_result.selected_items;
+
+    if selected_items.is_empty() {
+        tracing::warn!("no tests selected");
+        return Ok(());
+    }
+
+    if selected_items.len() > 1 {
+        panic!("programming error: multiple tests selected");
+    }
+
+    let test = selected_items[0].text();
+    state.set_last_test(test.clone())?;
+    println!("{test}");
 
     Ok(())
 }
