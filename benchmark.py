@@ -19,7 +19,7 @@ def run_benchmark(paths: list[str]):
     cmd = [
         "hyperfine",
         "--warmup",
-        "3",
+        "5",
     ]
     for command in COMMANDS:
         cmd.append(command.format(paths=" ".join(paths), interpreter_path=sys.executable))
