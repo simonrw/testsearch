@@ -79,13 +79,26 @@ def pytest_collect_items(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
         sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
         tfile.seek(0)
-        with open(tfile.name) as infile: data = json.load(infile)
+        with open(tfile.name) as infile:
+            data = json.load(infile)
 
     tests = []
     extract_tests(data, tests)
     # test path = localstack/tests/aws/scenario/loan_broker/test_loan_broker.py
     test_root = Path(__file__).parent
-    return [test_root / test for test in tests]
+    out = []
+    excluded_tests = set()
+    for test in tests:
+        if test.endswith("]"):
+            non_parametrized_test = test.split("[")[0]
+            if non_parametrized_test not in excluded_tests:
+                out.append(Path(non_parametrized_test))
+            excluded_tests.add(non_parametrized_test)
+            continue
+
+        full_path = test_root / test
+        out.append(full_path)
+    return out
 
 
 @pytest.mark.parametrize(
