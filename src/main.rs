@@ -27,7 +27,7 @@ fn find_test_files(root: impl AsRef<Path>, chan: mpsc::Sender<PathBuf>) -> eyre:
                     && path
                         .file_name()
                         .and_then(|filename| filename.to_str())
-                        .map(|filename| filename.starts_with("test_"))
+                        .map(|filename| filename.starts_with("test_") && filename.ends_with(".py"))
                         .unwrap_or_default()
                 {
                     let _ = chan.send(path.to_path_buf());
@@ -47,7 +47,7 @@ fn main() -> eyre::Result<()> {
         .init();
     color_eyre::install()?;
 
-    let args = dbg!(Args::parse());
+    let args = Args::parse();
 
     let (files_tx, files_rx) = mpsc::channel();
 
