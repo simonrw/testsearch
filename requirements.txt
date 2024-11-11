@@ -413,6 +413,8 @@ rpds-py==0.21.0
     #   referencing
 rsa==4.7.2
     # via awscli
+rstr==3.2.2
+    # via -r requirements.in
 s3transfer==0.10.3
     # via
     #   awscli

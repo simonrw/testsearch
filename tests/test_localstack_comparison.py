@@ -33,24 +33,37 @@ def run_search(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
 Node = list | dict
 
 
-def extract_tests(root: Node, tests: list[Any] | None):
+def extract_tests(root: Node, tests: list[Any] | None = None, current_path: str = ""):
     if tests is None:
         tests = []
 
     if isinstance(root, list):
         for every in root:
-            extract_tests(every, tests)
+            extract_tests(every, tests, current_path)
     elif isinstance(root, dict):
         if "children" not in root:
-            tests.append(0)
+            if current_path:
+                node_id = f"{current_path}::{root['title']}"
+            else:
+                node_id = root["title"]
+            tests.append(node_id)
+            current_path = ""
         else:
+            if current_path:
+                if root["type"] == "Class":
+                    current_path = current_path + "::" + root["title"]
+                else:
+                    current_path = current_path + "/" + root["title"]
+            else:
+                current_path = root["title"]
             for child in root["children"]:
-                extract_tests(child, tests)
+                extract_tests(child, tests, current_path)
     else:
         raise TypeError(f"{root} is not a list or dict")
 
 
 def pytest_collect_items(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
+    # root = /Users/simon/dev/testsearch/tests/localstack/tests/aws
     with tempfile.NamedTemporaryFile() as tfile:
         cmd = [
             sys.executable,
@@ -66,12 +79,138 @@ def pytest_collect_items(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
         sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
         tfile.seek(0)
-        with open(tfile.name) as infile:
-            data = json.load(infile)
+        with open(tfile.name) as infile: data = json.load(infile)
 
     tests = []
     extract_tests(data, tests)
-    return tests
+    # test path = localstack/tests/aws/scenario/loan_broker/test_loan_broker.py
+    test_root = Path(__file__).parent
+    return [test_root / test for test in tests]
+
+
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ({"type": "Function", "title": "test_foo"}, ["test_foo"]),
+        (
+            {
+                "type": "Class",
+                "title": "TestClass",
+                "children": [
+                    {"type": "Function", "title": "test_foo"},
+                ],
+            },
+            ["TestClass::test_foo"],
+        ),
+        (
+            {
+                "type": "Module",
+                "title": "test_file.py",
+                "children": [
+                    {
+                        "type": "Class",
+                        "title": "TestClass",
+                        "children": [
+                            {"type": "Function", "title": "test_foo"},
+                        ],
+                    }
+                ],
+            },
+            ["test_file.py::TestClass::test_foo"],
+        ),
+        (
+            {
+                "type": "Package",
+                "title": "foo",
+                "children": [
+                    {
+                        "type": "Module",
+                        "title": "test_file.py",
+                        "children": [
+                            {
+                                "type": "Class",
+                                "title": "TestClass",
+                                "children": [
+                                    {"type": "Function", "title": "test_foo"},
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            },
+            ["foo/test_file.py::TestClass::test_foo"],
+        ),
+        (
+            {
+                "type": "Package",
+                "title": "tests",
+                "children": [
+                    {
+                        "type": "Package",
+                        "title": "foo",
+                        "children": [
+                            {
+                                "type": "Module",
+                                "title": "test_file.py",
+                                "children": [
+                                    {
+                                        "type": "Class",
+                                        "title": "TestClass",
+                                        "children": [
+                                            {"type": "Function", "title": "test_foo"},
+                                        ],
+                                    }
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            },
+            ["tests/foo/test_file.py::TestClass::test_foo"],
+        ),
+        (
+            {
+                "type": "Dir",
+                "title": "localstack",
+                "children": [
+                    {
+                        "type": "Package",
+                        "title": "tests",
+                        "children": [
+                            {
+                                "type": "Package",
+                                "title": "foo",
+                                "children": [
+                                    {
+                                        "type": "Module",
+                                        "title": "test_file.py",
+                                        "children": [
+                                            {
+                                                "type": "Class",
+                                                "title": "TestClass",
+                                                "children": [
+                                                    {
+                                                        "type": "Function",
+                                                        "title": "test_foo",
+                                                    },
+                                                ],
+                                            }
+                                        ],
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            ["localstack/tests/foo/test_file.py::TestClass::test_foo"],
+        ),
+    ],
+)
+def test_extract_tests(input: Node, expected: list[str]):
+    tests = []
+    extract_tests(input, tests)
+    assert tests == expected
 
 
 @pytest.mark.parametrize(
@@ -86,7 +225,7 @@ def pytest_collect_items(root: Path = DEFAULTS_TEST_PATH) -> list[Path]:
 )
 def test_something(subdir: str):
     root = DEFAULTS_TEST_PATH / subdir
-    pytest_tests = pytest_collect_items(root)
-    testsearch_tests = run_search(root)
+    pytest_tests = sorted(pytest_collect_items(root))
+    testsearch_tests = sorted(run_search(root))
 
-    assert len(pytest_tests) == len(testsearch_tests)
+    assert testsearch_tests == pytest_tests
