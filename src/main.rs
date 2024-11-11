@@ -27,6 +27,9 @@ struct Args {
 
 #[derive(Serialize, Deserialize, Default)]
 struct PersistedState {
+    /// Persisted state of the last run test
+    ///
+    /// The HashMap is a mapping from directory to test name
     last_test: HashMap<PathBuf, String>,
 }
 

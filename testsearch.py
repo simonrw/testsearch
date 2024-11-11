@@ -219,6 +219,7 @@ def iter_tests(
 
 
 class State:
+    # mapping of state type to (path, name) mapping
     state: dict[str, dict[str, str]]
 
     def __init__(self, root: Path):
