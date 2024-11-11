@@ -2,17 +2,16 @@
 
 import argparse
 import os
-import subprocess as sp
 import sys
 
 
 COMMANDS = [
     "cargo run --release -- {paths}",
-    "{interpreter_path} ./testsearch.py --method serial {paths}",
-    "{interpreter_path} ./testsearch.py --method map --pool threads {paths}",
-    "{interpreter_path} ./testsearch.py --method apply --pool threads {paths}",
-    "{interpreter_path} ./testsearch.py --method map --pool processes {paths}",
-    "{interpreter_path} ./testsearch.py --method apply --pool processes {paths}",
+    "{interpreter_path} ./testsearch.py --no-fuzzy-selection --method serial {paths}",
+    "{interpreter_path} ./testsearch.py --no-fuzzy-selection --method map --pool threads {paths}",
+    "{interpreter_path} ./testsearch.py --no-fuzzy-selection --method apply --pool threads {paths}",
+    "{interpreter_path} ./testsearch.py --no-fuzzy-selection --method map --pool processes {paths}",
+    "{interpreter_path} ./testsearch.py --no-fuzzy-selection --method apply --pool processes {paths}",
 ]
 
 
