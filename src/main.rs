@@ -126,8 +126,16 @@ fn main() -> eyre::Result<()> {
 
     let (files_tx, files_rx) = unbounded();
 
+    // check that some files were passed, otherwise default to the current working directory
+    let search_roots = if args.root.is_empty() {
+        let here = std::env::current_dir().wrap_err("locating current directory")?;
+        vec![here]
+    } else {
+        args.root
+    };
+
     let mut file_handles = Vec::new();
-    for path in args.root {
+    for path in search_roots {
         let span = tracing::debug_span!("", path = %path.display());
         let _guard = span.enter();
 
@@ -147,6 +155,10 @@ fn main() -> eyre::Result<()> {
     }
 
     let files: Vec<_> = files_rx.into_iter().collect();
+    if files.is_empty() {
+        eyre::bail!("No compatible test files found");
+    }
+
     tracing::debug!(n = files.len(), "finished collecting files");
 
     let (test_tx, test_rx) = unbounded();
