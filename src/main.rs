@@ -2,7 +2,9 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt, fs, io,
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
     thread,
 };
@@ -16,6 +18,24 @@ use skim::prelude::*;
 use tracing_subscriber::EnvFilter;
 use tree_sitter::Node;
 
+#[derive(Debug, Clone, Copy)]
+enum CacheClearOption {
+    Current,
+    All,
+}
+
+impl FromStr for CacheClearOption {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> eyre::Result<Self> {
+        match s {
+            "current" => Ok(Self::Current),
+            "all" => Ok(Self::All),
+            other => eyre::bail!("invalid cache clear option: {other}"),
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 struct Args {
     root: Vec<PathBuf>,
@@ -23,6 +43,12 @@ struct Args {
     no_fizzy_selection: bool,
     #[clap(short, long)]
     rerun_last: bool,
+    #[clap(short, long)]
+    clear_cache: Option<CacheClearOption>,
+}
+
+fn current_dir() -> eyre::Result<PathBuf> {
+    std::env::current_dir().wrap_err("locating current directory")
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -31,6 +57,21 @@ struct PersistedState {
     ///
     /// The HashMap is a mapping from directory to test name
     last_test: HashMap<PathBuf, String>,
+}
+
+impl PersistedState {
+    fn clear(&mut self, clear_option: CacheClearOption) -> eyre::Result<()> {
+        match clear_option {
+            CacheClearOption::Current => {
+                let here = current_dir()?;
+                let _ = self.last_test.remove(&here);
+            }
+            CacheClearOption::All => {
+                *self = Self::default();
+            }
+        }
+        Ok(())
+    }
 }
 
 struct State {
@@ -58,14 +99,22 @@ impl State {
     }
 
     fn last_test(&self) -> Option<&String> {
-        let here = std::env::current_dir().ok()?;
+        let here = current_dir().ok()?;
         self.persisted.last_test.get(&here)
     }
 
     fn set_last_test(&mut self, last_test: impl Into<String>) -> eyre::Result<()> {
-        let here = std::env::current_dir().wrap_err("locating current directory")?;
+        let here = current_dir()?;
         self.persisted.last_test.insert(here, last_test.into());
         self.flush().wrap_err("flushing cache changes to disk")?;
+        Ok(())
+    }
+
+    fn clear(&mut self, clear_option: CacheClearOption) -> eyre::Result<()> {
+        self.persisted
+            .clear(clear_option)
+            .wrap_err("clearing cache")?;
+        self.flush()?;
         Ok(())
     }
 
@@ -114,6 +163,12 @@ fn main() -> eyre::Result<()> {
     tracing::debug!(cache_root = %cache_root.display(), "using cache root dir");
     let mut state = State::new(cache_root).wrap_err("constructing persistent state")?;
 
+    if let Some(cache_clear_option) = args.clear_cache {
+        state
+            .clear(cache_clear_option)
+            .wrap_err("clearing cache state")?;
+    }
+
     if args.rerun_last {
         match state.last_test() {
             Some(name) => {
@@ -128,7 +183,7 @@ fn main() -> eyre::Result<()> {
 
     // check that some files were passed, otherwise default to the current working directory
     let search_roots = if args.root.is_empty() {
-        let here = std::env::current_dir().wrap_err("locating current directory")?;
+        let here = current_dir()?;
         vec![here]
     } else {
         args.root
