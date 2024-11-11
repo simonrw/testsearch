@@ -1,8 +1,8 @@
 use std::{
-    fmt::{self},
-    fs, io,
+    borrow::Cow,
+    fmt, fs, io,
     path::{Path, PathBuf},
-    sync::mpsc,
+    sync::Arc,
     thread,
 };
 
@@ -10,15 +10,18 @@ use clap::Parser;
 use color_eyre::eyre::{self, Context};
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use skim::prelude::*;
 use tracing_subscriber::EnvFilter;
 use tree_sitter::Node;
 
 #[derive(Debug, Parser)]
 struct Args {
     root: Vec<PathBuf>,
+    #[clap(short, long)]
+    no_fizzy_selection: bool,
 }
 
-fn find_test_files(root: impl AsRef<Path>, chan: mpsc::Sender<PathBuf>) -> eyre::Result<()> {
+fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Result<()> {
     WalkBuilder::new(root).build_parallel().run(|| {
         Box::new(|path| {
             if let Ok(entry) = path {
@@ -49,7 +52,7 @@ fn main() -> eyre::Result<()> {
 
     let args = Args::parse();
 
-    let (files_tx, files_rx) = mpsc::channel();
+    let (files_tx, files_rx) = unbounded();
 
     let mut file_handles = Vec::new();
     for path in args.root {
@@ -74,7 +77,7 @@ fn main() -> eyre::Result<()> {
     let files: Vec<_> = files_rx.into_iter().collect();
     tracing::debug!(n = files.len(), "finished collecting files");
 
-    let (test_tx, test_rx) = mpsc::channel();
+    let (test_tx, test_rx) = unbounded();
     files
         .into_par_iter()
         .for_each_with(test_tx, |sender, path| {
@@ -83,8 +86,22 @@ fn main() -> eyre::Result<()> {
             }
         });
 
-    for test in test_rx {
-        println!("{test}");
+    if args.no_fizzy_selection {
+        for test in test_rx {
+            println!("{}", test.text());
+        }
+
+        return Ok(());
+    }
+
+    // perform fuzzy search
+    let skim_options = SkimOptions::default();
+    let selected_items = skim::Skim::run_with(&skim_options, Some(test_rx))
+        .map(|out| out.selected_items)
+        .unwrap_or_default();
+
+    for item in selected_items {
+        println!("{}", item.text());
     }
 
     Ok(())
@@ -92,12 +109,15 @@ fn main() -> eyre::Result<()> {
 
 struct Visitor<'s> {
     filename: &'s Path,
-    sender: &'s mut mpsc::Sender<TestCase>,
+    sender: &'s mut skim::prelude::Sender<Arc<dyn SkimItem>>,
     bytes: Vec<u8>,
 }
 
 impl<'s> Visitor<'s> {
-    pub fn new(filename: &'s Path, sender: &'s mut mpsc::Sender<TestCase>) -> eyre::Result<Self> {
+    pub fn new(
+        filename: &'s Path,
+        sender: &'s mut skim::prelude::Sender<Arc<dyn SkimItem>>,
+    ) -> eyre::Result<Self> {
         let bytes = fs::read(filename).wrap_err("reading file")?;
         Ok(Self {
             filename,
@@ -246,15 +266,20 @@ impl<'s> Visitor<'s> {
             class_name,
         };
 
+        let send_item = Arc::new(test_case);
+
         self.sender
-            .send(test_case)
+            .send(send_item)
             .wrap_err("sending test case to closed receiver")?;
 
         Ok(())
     }
 }
 
-fn parse_file(sender: &mut mpsc::Sender<TestCase>, path: &Path) -> eyre::Result<()> {
+fn parse_file(
+    sender: &mut skim::prelude::Sender<Arc<dyn SkimItem>>,
+    path: &Path,
+) -> eyre::Result<()> {
     let mut visitor = Visitor::new(path, sender).wrap_err("creating visitor")?;
     visitor.visit().wrap_err("parsing file")?;
     Ok(())
@@ -265,6 +290,12 @@ struct TestCase {
     name: String,
     file: PathBuf,
     class_name: Option<String>,
+}
+
+impl skim::SkimItem for TestCase {
+    fn text(&self) -> std::borrow::Cow<str> {
+        Cow::Owned(format!("{self}"))
+    }
 }
 
 impl fmt::Display for TestCase {

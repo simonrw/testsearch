@@ -8,6 +8,7 @@ clap = { version = "4.5.19", features = ["derive"] }
 color-eyre = "0.6.3"
 ignore = "0.4.23"
 rayon = "1.10.0"
+skim = "0.10.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
 tree-sitter = "0.23.2"
