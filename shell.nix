@@ -1,11 +1,37 @@
 {pkgs ? import <nixpkgs> {}}:
-with pkgs;
+with pkgs; let
+  pytest-collect-formatter = python3Packages.buildPythonPackage rec {
+    pname = "pytest-collect-formatter";
+    version = "0.4.0";
+
+    src = fetchPypi {
+      inherit pname version;
+      hash = "sha256-jYp3qn5x7ZdFscIBckjZ7ksRiGGanSaLNNtxSvA6FAo=";
+    };
+
+    buildInputs = with python3Packages; [
+      pip
+    ];
+
+    propagatedBuildInputs = with python3Packages; [
+      dicttoxml
+      pyyaml
+    ];
+  };
+
+  custom-python = python3.withPackages (ps:
+    with ps; [
+      pytest
+      pytest-collect-formatter
+    ]);
+in
   mkShell rec {
     packages =
       [
         hyperfine
         rustup
         clang
+        custom-python
       ]
       ++ lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
         libiconv
