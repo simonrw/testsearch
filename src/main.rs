@@ -65,6 +65,12 @@ enum StateCommand {
         #[arg(short, long)]
         all: bool,
     },
+    /// Show the state contents
+    Show {
+        /// Show the last run test for every directory
+        #[arg(short, long)]
+        all: bool,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -299,6 +305,18 @@ fn main() -> eyre::Result<()> {
                 state
                     .clear(cache_clear_option)
                     .wrap_err("clearing cache state")?;
+                Ok(())
+            }
+            StateCommand::Show { all } => {
+                let contents = if all {
+                    serde_json::to_string_pretty(&state.persisted)
+                        .wrap_err("serializing state to JSON")?
+                } else {
+                    let current_dir = current_dir().wrap_err("getting current directory")?;
+                    serde_json::to_string_pretty(&state.persisted.last_test.get(&current_dir))
+                        .wrap_err("serializing state to JSON")?
+                };
+                println!("{contents}");
                 Ok(())
             }
         },
