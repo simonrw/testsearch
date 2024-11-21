@@ -88,7 +88,9 @@ struct PersistedState {
     /// Persisted state of the last run test
     ///
     /// The HashMap is a mapping from directory to test name
-    last_test: HashMap<PathBuf, String>,
+    ///
+    /// legacy option
+    last_test: Option<HashMap<PathBuf, String>>,
 }
 
 impl PersistedState {
@@ -96,7 +98,9 @@ impl PersistedState {
         match clear_option {
             CacheClearOption::Current => {
                 let here = current_dir()?;
-                let _ = self.last_test.remove(&here);
+                if let Some(last_test) = self.last_test.as_mut() {
+                    last_test.remove(&here);
+                }
             }
             CacheClearOption::All => {
                 *self = Self::default();
@@ -132,12 +136,15 @@ impl State {
 
     fn last_test(&self) -> Option<&String> {
         let here = current_dir().ok()?;
-        self.persisted.last_test.get(&here)
+        self.persisted.last_test.as_ref()?.get(&here)
     }
 
     fn set_last_test(&mut self, last_test: impl Into<String>) -> eyre::Result<()> {
         let here = current_dir()?;
-        self.persisted.last_test.insert(here, last_test.into());
+        self.persisted
+            .last_test
+            .get_or_insert_with(HashMap::new)
+            .insert(here, last_test.into());
         self.flush().wrap_err("flushing cache changes to disk")?;
         Ok(())
     }
@@ -313,8 +320,12 @@ fn main() -> eyre::Result<()> {
                         .wrap_err("serializing state to JSON")?
                 } else {
                     let current_dir = current_dir().wrap_err("getting current directory")?;
-                    serde_json::to_string_pretty(&state.persisted.last_test.get(&current_dir))
-                        .wrap_err("serializing state to JSON")?
+                    if let Some(last_test) = state.persisted.last_test {
+                        serde_json::to_string_pretty(&last_test.get(&current_dir))
+                            .wrap_err("serializing state to JSON")?
+                    } else {
+                        String::new()
+                    }
                 };
                 println!("{contents}");
                 Ok(())
