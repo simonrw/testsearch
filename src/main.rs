@@ -85,21 +85,38 @@ fn current_dir() -> eyre::Result<PathBuf> {
 
 #[derive(Serialize, Deserialize, Default)]
 struct PersistedState {
+    /// Persisted history of all previous test runs
+    #[serde(default)]
+    test_history: Option<HashMap<PathBuf, Vec<String>>>,
+
     /// Persisted state of the last run test
     ///
     /// The HashMap is a mapping from directory to test name
     ///
     /// legacy option
+    #[serde(default)]
     last_test: Option<HashMap<PathBuf, String>>,
 }
 
 impl PersistedState {
+    fn history(&self, path: impl AsRef<Path>) -> Option<Vec<String>> {
+        let path = path.as_ref();
+        match (self.test_history.as_ref(), self.last_test.as_ref()) {
+            (Some(h), _) => h.get(path).cloned(),
+            (None, Some(last)) => last.get(path).map(|p| vec![p.clone()]),
+            _ => None,
+        }
+    }
+
     fn clear(&mut self, clear_option: CacheClearOption) -> eyre::Result<()> {
         match clear_option {
             CacheClearOption::Current => {
                 let here = current_dir()?;
                 if let Some(last_test) = self.last_test.as_mut() {
                     last_test.remove(&here);
+                }
+                if let Some(history) = self.test_history.as_mut() {
+                    history.remove(&here);
                 }
             }
             CacheClearOption::All => {
@@ -134,13 +151,17 @@ impl State {
         })
     }
 
-    fn last_test(&self) -> Option<&String> {
+    fn last_test(&self) -> Option<String> {
         let here = current_dir().ok()?;
-        self.persisted.last_test.as_ref()?.get(&here)
+        if let Some(history) = self.persisted.history(&here) {
+            return history.last().cloned();
+        }
+        None
     }
 
     fn set_last_test(&mut self, last_test: impl Into<String>) -> eyre::Result<()> {
         let here = current_dir()?;
+        // TODO
         self.persisted
             .last_test
             .get_or_insert_with(HashMap::new)
