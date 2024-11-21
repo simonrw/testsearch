@@ -440,7 +440,7 @@ impl<'s> Visitor<'s> {
                 "function_definition" => {
                     self.handle_function_definition(child, class_name.clone())?
                 }
-                "expression_statement" | "comment" => continue,
+                "expression_statement" | "comment" | "pass_statement" => continue,
                 kind => todo!("{kind}"),
             }
         }
