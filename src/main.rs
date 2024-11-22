@@ -125,6 +125,19 @@ impl PersistedState {
         }
         Ok(())
     }
+
+    fn migrate_settings(&mut self) -> eyre::Result<()> {
+        if let Some(last_test) = self.last_test.take() {
+            debug_assert!(self.test_history.is_none());
+
+            let mut test_history = HashMap::new();
+            for (path, test) in last_test {
+                test_history.insert(path, vec![test]);
+            }
+            self.test_history = Some(test_history);
+        }
+        Ok(())
+    }
 }
 
 struct State {
@@ -185,6 +198,12 @@ impl State {
             .wrap_err("writing state to cache file")?;
         Ok(())
     }
+
+    fn migrate_settings(&mut self) -> eyre::Result<()> {
+        self.persisted.migrate_settings()?;
+        self.flush()?;
+        Ok(())
+    }
 }
 
 fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Result<()> {
@@ -222,6 +241,7 @@ fn main() -> eyre::Result<()> {
         .ok_or_else(|| eyre::eyre!("locating cache dir on system"))?;
     tracing::debug!(cache_root = %cache_root.display(), "using cache root dir");
     let mut state = State::new(cache_root).wrap_err("constructing persistent state")?;
+    state.migrate_settings().wrap_err("migrating settings")?;
 
     match args.command {
         Command::Search {
