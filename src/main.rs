@@ -45,10 +45,15 @@ enum Command {
         /// Print results rather than using fuzzy find
         #[arg(short, long)]
         no_fizzy_selection: bool,
+    },
+    /// Rerun a previous test
+    Rerun {
+        /// Path to re-run tests from
+        root: Option<PathBuf>,
 
-        /// Re-run the last test
+        /// Automatically pick the most recent test
         #[arg(short, long)]
-        rerun_last: bool,
+        last: bool,
     },
     /// View or manage state
     State {
@@ -85,23 +90,56 @@ fn current_dir() -> eyre::Result<PathBuf> {
 
 #[derive(Serialize, Deserialize, Default)]
 struct PersistedState {
+    /// Persisted history of all previous test runs
+    #[serde(default)]
+    test_history: Option<HashMap<PathBuf, Vec<String>>>,
+
     /// Persisted state of the last run test
     ///
     /// The HashMap is a mapping from directory to test name
-    last_test: HashMap<PathBuf, String>,
+    ///
+    /// legacy option
+    #[serde(default)]
+    last_test: Option<HashMap<PathBuf, String>>,
 }
 
 impl PersistedState {
+    fn history(&self, path: impl AsRef<Path>) -> Option<Vec<String>> {
+        let path = path.as_ref();
+        match (self.test_history.as_ref(), self.last_test.as_ref()) {
+            (Some(h), _) => h.get(path).cloned(),
+            (None, Some(_)) => panic!("we should never have last_test but not test_history"),
+            _ => None,
+        }
+    }
+
     fn clear(&mut self, clear_option: CacheClearOption) -> eyre::Result<()> {
         match clear_option {
             CacheClearOption::Current => {
                 let here = current_dir()?;
-                let _ = self.last_test.remove(&here);
+                if let Some(last_test) = self.last_test.as_mut() {
+                    last_test.remove(&here);
+                }
+                if let Some(history) = self.test_history.as_mut() {
+                    history.remove(&here);
+                }
             }
             CacheClearOption::All => {
                 *self = Self::default();
             }
         }
+        Ok(())
+    }
+
+    fn migrate_settings(&mut self) -> eyre::Result<()> {
+        if let Some(last_test) = self.last_test.take() {
+            let mut test_history = HashMap::new();
+            for (path, test) in last_test {
+                test_history.insert(path, vec![test]);
+            }
+            self.test_history = Some(test_history);
+        }
+
         Ok(())
     }
 }
@@ -130,14 +168,13 @@ impl State {
         })
     }
 
-    fn last_test(&self) -> Option<&String> {
-        let here = current_dir().ok()?;
-        self.persisted.last_test.get(&here)
-    }
-
     fn set_last_test(&mut self, last_test: impl Into<String>) -> eyre::Result<()> {
         let here = current_dir()?;
-        self.persisted.last_test.insert(here, last_test.into());
+        // TODO
+        self.persisted
+            .last_test
+            .get_or_insert_with(HashMap::new)
+            .insert(here, last_test.into());
         self.flush().wrap_err("flushing cache changes to disk")?;
         Ok(())
     }
@@ -155,6 +192,12 @@ impl State {
             std::fs::File::create(&self.cache_file).wrap_err("creating cache file")?;
         serde_json::to_writer(&mut outfile, &self.persisted)
             .wrap_err("writing state to cache file")?;
+        Ok(())
+    }
+
+    fn migrate_settings(&mut self) -> eyre::Result<()> {
+        self.persisted.migrate_settings()?;
+        self.flush()?;
         Ok(())
     }
 }
@@ -194,23 +237,13 @@ fn main() -> eyre::Result<()> {
         .ok_or_else(|| eyre::eyre!("locating cache dir on system"))?;
     tracing::debug!(cache_root = %cache_root.display(), "using cache root dir");
     let mut state = State::new(cache_root).wrap_err("constructing persistent state")?;
+    state.migrate_settings().wrap_err("migrating settings")?;
 
     match args.command {
         Command::Search {
             root,
             no_fizzy_selection,
-            rerun_last,
         } => {
-            if rerun_last {
-                match state.last_test() {
-                    Some(name) => {
-                        println!("{name}");
-                        return Ok(());
-                    }
-                    None => eyre::bail!("No last test recorded"),
-                }
-            }
-
             let (files_tx, files_rx) = unbounded();
 
             // check that some files were passed, otherwise default to the current working directory
@@ -313,13 +346,87 @@ fn main() -> eyre::Result<()> {
                         .wrap_err("serializing state to JSON")?
                 } else {
                     let current_dir = current_dir().wrap_err("getting current directory")?;
-                    serde_json::to_string_pretty(&state.persisted.last_test.get(&current_dir))
-                        .wrap_err("serializing state to JSON")?
+                    if let Some(tests) = state.persisted.history(&current_dir) {
+                        serde_json::to_string_pretty(&tests)
+                            .wrap_err("serializing state to JSON")?
+                    } else {
+                        String::new()
+                    }
                 };
                 println!("{contents}");
                 Ok(())
             }
         },
+        Command::Rerun { root, last } => {
+            // fetch the tests from the state using root as the key
+            let search_root = if let Some(root) = root {
+                root
+            } else {
+                current_dir()?
+            };
+
+            let history = state.persisted.history(search_root.clone());
+            match history {
+                Some(history) => {
+                    if last {
+                        // pick last test from history
+                        match history.last() {
+                            Some(last_test) => {
+                                println!("{}", last_test);
+                                Ok(())
+                            }
+                            None => {
+                                eyre::bail!(
+                                    "No test history found for path {}",
+                                    search_root.display()
+                                )
+                            }
+                        }
+                    } else {
+                        // perform fuzzy search through history
+                        let (test_tx, test_rx) = unbounded();
+                        for test in history {
+                            let item: Arc<dyn SkimItem> = Arc::new(TestHistoryEntry { text: test });
+                            test_tx.send(item)?;
+                        }
+
+                        let skim_options = SkimOptionsBuilder::default()
+                            .multi(false)
+                            .build()
+                            .expect("invalid skim options");
+
+                        let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
+                            .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
+
+                        if search_result.is_abort {
+                            tracing::info!("no tests selected");
+                            return Ok(());
+                        }
+
+                        let selected_items = search_result.selected_items;
+                        if selected_items.is_empty() {
+                            tracing::warn!("no tests selected");
+                            return Ok(());
+                        }
+
+                        let test = selected_items[0].text();
+                        println!("{}", test);
+                        Ok(())
+                    }
+                }
+                None => eyre::bail!("No test history found for path {}", search_root.display()),
+            }
+        }
+    }
+}
+
+struct TestHistoryEntry {
+    text: String,
+}
+
+impl SkimItem for TestHistoryEntry {
+    fn text(&self) -> std::borrow::Cow<str> {
+        Cow::Borrowed(&self.text)
     }
 }
 
