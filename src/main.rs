@@ -103,7 +103,7 @@ impl PersistedState {
         let path = path.as_ref();
         match (self.test_history.as_ref(), self.last_test.as_ref()) {
             (Some(h), _) => h.get(path).cloned(),
-            (None, Some(last)) => last.get(path).map(|p| vec![p.clone()]),
+            (None, Some(_)) => panic!("we should never have last_test but not test_history"),
             _ => None,
         }
     }
@@ -128,14 +128,13 @@ impl PersistedState {
 
     fn migrate_settings(&mut self) -> eyre::Result<()> {
         if let Some(last_test) = self.last_test.take() {
-            debug_assert!(self.test_history.is_none());
-
             let mut test_history = HashMap::new();
             for (path, test) in last_test {
                 test_history.insert(path, vec![test]);
             }
             self.test_history = Some(test_history);
         }
+
         Ok(())
     }
 }
