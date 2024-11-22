@@ -45,10 +45,15 @@ enum Command {
         /// Print results rather than using fuzzy find
         #[arg(short, long)]
         no_fizzy_selection: bool,
+    },
+    /// Rerun a previous test
+    Rerun {
+        /// Path to re-run tests from
+        root: Option<PathBuf>,
 
-        /// Re-run the last test
+        /// Automatically pick the most recent test
         #[arg(short, long)]
-        rerun_last: bool,
+        last: bool,
     },
     /// View or manage state
     State {
@@ -163,14 +168,6 @@ impl State {
         })
     }
 
-    fn last_test(&self) -> Option<String> {
-        let here = current_dir().ok()?;
-        if let Some(history) = self.persisted.history(&here) {
-            return history.last().cloned();
-        }
-        None
-    }
-
     fn set_last_test(&mut self, last_test: impl Into<String>) -> eyre::Result<()> {
         let here = current_dir()?;
         // TODO
@@ -246,18 +243,7 @@ fn main() -> eyre::Result<()> {
         Command::Search {
             root,
             no_fizzy_selection,
-            rerun_last,
         } => {
-            if rerun_last {
-                match state.last_test() {
-                    Some(name) => {
-                        println!("{name}");
-                        return Ok(());
-                    }
-                    None => eyre::bail!("No last test recorded"),
-                }
-            }
-
             let (files_tx, files_rx) = unbounded();
 
             // check that some files were passed, otherwise default to the current working directory
@@ -371,6 +357,76 @@ fn main() -> eyre::Result<()> {
                 Ok(())
             }
         },
+        Command::Rerun { root, last } => {
+            // fetch the tests from the state using root as the key
+            let search_root = if let Some(root) = root {
+                root
+            } else {
+                current_dir()?
+            };
+
+            let history = state.persisted.history(search_root.clone());
+            match history {
+                Some(history) => {
+                    if last {
+                        // pick last test from history
+                        match history.last() {
+                            Some(last_test) => {
+                                println!("{}", last_test);
+                                Ok(())
+                            }
+                            None => {
+                                eyre::bail!(
+                                    "No test history found for path {}",
+                                    search_root.display()
+                                )
+                            }
+                        }
+                    } else {
+                        // perform fuzzy search through history
+                        let (test_tx, test_rx) = unbounded();
+                        for test in history {
+                            let item: Arc<dyn SkimItem> = Arc::new(TestHistoryEntry { text: test });
+                            test_tx.send(item)?;
+                        }
+
+                        let skim_options = SkimOptionsBuilder::default()
+                            .multi(false)
+                            .build()
+                            .expect("invalid skim options");
+
+                        let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
+                            .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
+
+                        if search_result.is_abort {
+                            tracing::info!("no tests selected");
+                            return Ok(());
+                        }
+
+                        let selected_items = search_result.selected_items;
+                        if selected_items.is_empty() {
+                            tracing::warn!("no tests selected");
+                            return Ok(());
+                        }
+
+                        let test = selected_items[0].text();
+                        println!("{}", test);
+                        Ok(())
+                    }
+                }
+                None => eyre::bail!("No test history found for path {}", search_root.display()),
+            }
+        }
+    }
+}
+
+struct TestHistoryEntry {
+    text: String,
+}
+
+impl SkimItem for TestHistoryEntry {
+    fn text(&self) -> std::borrow::Cow<str> {
+        Cow::Borrowed(&self.text)
     }
 }
 
