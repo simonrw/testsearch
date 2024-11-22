@@ -346,8 +346,8 @@ fn main() -> eyre::Result<()> {
                         .wrap_err("serializing state to JSON")?
                 } else {
                     let current_dir = current_dir().wrap_err("getting current directory")?;
-                    if let Some(last_test) = state.persisted.last_test {
-                        serde_json::to_string_pretty(&last_test.get(&current_dir))
+                    if let Some(tests) = state.persisted.history(&current_dir) {
+                        serde_json::to_string_pretty(&tests)
                             .wrap_err("serializing state to JSON")?
                     } else {
                         String::new()
