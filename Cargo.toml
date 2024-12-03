@@ -4,6 +4,7 @@ resolver = "2"
 members = [ 
   "testsearch",
   "testsearch-core",
+  "pytest-testsearch",
 ]
 
 [workspace.dependencies]
