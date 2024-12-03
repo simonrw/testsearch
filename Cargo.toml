@@ -1,8 +1,17 @@
 [workspace]
 resolver = "2"
 
-members = [
+members = [ 
+  "testsearch",
   "testsearch-core",
 ]
 
-
+[workspace.dependencies]
+clap = { version = "4.5.19", features = ["derive"] }
+color-eyre = "0.6.3"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
+dirs = "5.0.1"
+tracing = "0.1.40"
+serde_json = "1.0.132"
+skim = "0.10.4"
+rayon = "1.10.0"
