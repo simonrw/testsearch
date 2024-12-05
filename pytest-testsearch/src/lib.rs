@@ -1,4 +1,4 @@
-use pyo3::{prelude::*, types::PyList};
+use pyo3::{intern, prelude::*};
 
 /// Collect pytest items
 #[pyfunction]
@@ -6,9 +6,9 @@ use pyo3::{prelude::*, types::PyList};
 fn pytest_collection<'py>(
     py: Python<'py>,
     session: &Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyList>> {
-    let _ = session;
-    let retval = PyList::empty(py);
+) -> PyResult<Bound<'py, PyAny>> {
+    let items = session.getattr(intern!(py, "items"))?;
+    let retval = items;
     Ok(retval)
 }
 
