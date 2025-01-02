@@ -3,8 +3,8 @@ use std::{
     collections::HashMap,
     fmt, fs, io,
     path::{Path, PathBuf},
+    process::ExitCode,
     str::FromStr,
-    sync::Arc,
     thread,
 };
 
@@ -223,7 +223,7 @@ fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Resul
     Ok(())
 }
 
-fn main() -> eyre::Result<()> {
+fn main() -> eyre::Result<ExitCode> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(io::stderr)
@@ -295,7 +295,7 @@ fn main() -> eyre::Result<()> {
                     println!("{}", test.text());
                 }
 
-                return Ok(());
+                return Ok(ExitCode::SUCCESS);
             }
 
             // perform fuzzy search
@@ -308,14 +308,14 @@ fn main() -> eyre::Result<()> {
 
             if search_result.is_abort {
                 tracing::info!("no tests selected");
-                return Ok(());
+                return Ok(ExitCode::FAILURE);
             }
 
             let selected_items = search_result.selected_items;
 
             if selected_items.is_empty() {
                 tracing::warn!("no tests selected");
-                return Ok(());
+                return Ok(ExitCode::SUCCESS);
             }
 
             if selected_items.len() > 1 {
@@ -326,7 +326,7 @@ fn main() -> eyre::Result<()> {
             state.set_last_test(test.clone())?;
             println!("{test}");
 
-            Ok(())
+            Ok(ExitCode::SUCCESS)
         }
         Command::State { state_command } => match state_command {
             StateCommand::Clear { all } => {
@@ -338,7 +338,7 @@ fn main() -> eyre::Result<()> {
                 state
                     .clear(cache_clear_option)
                     .wrap_err("clearing cache state")?;
-                Ok(())
+                Ok(ExitCode::SUCCESS)
             }
             StateCommand::Show { all } => {
                 let contents = if all {
@@ -354,7 +354,7 @@ fn main() -> eyre::Result<()> {
                     }
                 };
                 println!("{contents}");
-                Ok(())
+                Ok(ExitCode::SUCCESS)
             }
         },
         Command::Rerun { root, last } => {
@@ -373,7 +373,7 @@ fn main() -> eyre::Result<()> {
                         match history.last() {
                             Some(last_test) => {
                                 println!("{}", last_test);
-                                Ok(())
+                                Ok(ExitCode::SUCCESS)
                             }
                             None => {
                                 eyre::bail!(
@@ -400,18 +400,18 @@ fn main() -> eyre::Result<()> {
 
                         if search_result.is_abort {
                             tracing::info!("no tests selected");
-                            return Ok(());
+                            return Ok(ExitCode::SUCCESS);
                         }
 
                         let selected_items = search_result.selected_items;
                         if selected_items.is_empty() {
                             tracing::warn!("no tests selected");
-                            return Ok(());
+                            return Ok(ExitCode::SUCCESS);
                         }
 
                         let test = selected_items[0].text();
                         println!("{}", test);
-                        Ok(())
+                        Ok(ExitCode::SUCCESS)
                     }
                 }
                 None => eyre::bail!("No test history found for path {}", search_root.display()),
