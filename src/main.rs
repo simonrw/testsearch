@@ -35,17 +35,22 @@ impl FromStr for CacheClearOption {
     }
 }
 
+#[derive(Debug, clap::Args, Clone, Default)]
+struct SearchArgs {
+    /// Paths to search for tests
+    #[arg(short, long)]
+    root: Vec<PathBuf>,
+
+    /// Print results rather than using fuzzy find
+    // TODO: spelling
+    #[arg(short, long)]
+    no_fizzy_selection: bool,
+}
+
 #[derive(Subcommand, Debug, Clone)]
 enum Command {
-    /// Search for a test or rerun the last test
-    Search {
-        /// Paths to search for tests
-        root: Vec<PathBuf>,
-
-        /// Print results rather than using fuzzy find
-        #[arg(short, long)]
-        no_fizzy_selection: bool,
-    },
+    // Search for a test or rerun the last test
+    Search(SearchArgs),
     /// Rerun a previous test
     Rerun {
         /// Path to re-run tests from
@@ -80,8 +85,11 @@ enum StateCommand {
 
 #[derive(Debug, Parser)]
 struct Args {
+    #[command(flatten)]
+    search: Option<SearchArgs>,
+
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 fn current_dir() -> eyre::Result<PathBuf> {
@@ -223,6 +231,96 @@ fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Resul
     Ok(())
 }
 
+fn perform_search(args: SearchArgs, mut state: State) -> eyre::Result<ExitCode> {
+    let SearchArgs {
+        root,
+        no_fizzy_selection,
+    } = args;
+    let (files_tx, files_rx) = unbounded();
+
+    // check that some files were passed, otherwise default to the current working directory
+    let search_roots = if root.is_empty() {
+        let here = current_dir()?;
+        vec![here]
+    } else {
+        root
+    };
+
+    let mut file_handles = Vec::new();
+    for path in search_roots {
+        let span = tracing::debug_span!("", path = %path.display());
+        let _guard = span.enter();
+
+        tracing::debug!("listing files");
+
+        let files_tx = files_tx.clone();
+        file_handles.push(thread::spawn(move || {
+            if let Err(e) = find_test_files(&path, files_tx) {
+                tracing::warn!(error = %e, path = %path.display(), "finding test files");
+            }
+        }));
+    }
+    drop(files_tx);
+
+    for handle in file_handles {
+        let _ = handle.join();
+    }
+
+    let files: Vec<_> = files_rx.into_iter().collect();
+    if files.is_empty() {
+        eyre::bail!("No compatible test files found");
+    }
+
+    tracing::debug!(n = files.len(), "finished collecting files");
+
+    let (test_tx, test_rx) = unbounded();
+    files
+        .into_par_iter()
+        .for_each_with(test_tx, |sender, path| {
+            if let Err(e) = parse_file(sender, &path) {
+                tracing::warn!(error = %e, path = %path.display(), "error parsing file");
+            }
+        });
+
+    if no_fizzy_selection {
+        for test in test_rx {
+            println!("{}", test.text());
+        }
+
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    // perform fuzzy search
+    let skim_options = SkimOptionsBuilder::default()
+        .multi(false)
+        .build()
+        .expect("invalid skim options");
+    let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
+        .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
+
+    if search_result.is_abort {
+        tracing::info!("no tests selected");
+        return Ok(ExitCode::FAILURE);
+    }
+
+    let selected_items = search_result.selected_items;
+
+    if selected_items.is_empty() {
+        tracing::warn!("no tests selected");
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    if selected_items.len() > 1 {
+        panic!("programming error: multiple tests selected");
+    }
+
+    let test = selected_items[0].text();
+    state.set_last_test(test.clone())?;
+    println!("{test}");
+
+    Ok(ExitCode::SUCCESS)
+}
+
 fn main() -> eyre::Result<ExitCode> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -240,95 +338,8 @@ fn main() -> eyre::Result<ExitCode> {
     state.migrate_settings().wrap_err("migrating settings")?;
 
     match args.command {
-        Command::Search {
-            root,
-            no_fizzy_selection,
-        } => {
-            let (files_tx, files_rx) = unbounded();
-
-            // check that some files were passed, otherwise default to the current working directory
-            let search_roots = if root.is_empty() {
-                let here = current_dir()?;
-                vec![here]
-            } else {
-                root
-            };
-
-            let mut file_handles = Vec::new();
-            for path in search_roots {
-                let span = tracing::debug_span!("", path = %path.display());
-                let _guard = span.enter();
-
-                tracing::debug!("listing files");
-
-                let files_tx = files_tx.clone();
-                file_handles.push(thread::spawn(move || {
-                    if let Err(e) = find_test_files(&path, files_tx) {
-                        tracing::warn!(error = %e, path = %path.display(), "finding test files");
-                    }
-                }));
-            }
-            drop(files_tx);
-
-            for handle in file_handles {
-                let _ = handle.join();
-            }
-
-            let files: Vec<_> = files_rx.into_iter().collect();
-            if files.is_empty() {
-                eyre::bail!("No compatible test files found");
-            }
-
-            tracing::debug!(n = files.len(), "finished collecting files");
-
-            let (test_tx, test_rx) = unbounded();
-            files
-                .into_par_iter()
-                .for_each_with(test_tx, |sender, path| {
-                    if let Err(e) = parse_file(sender, &path) {
-                        tracing::warn!(error = %e, path = %path.display(), "error parsing file");
-                    }
-                });
-
-            if no_fizzy_selection {
-                for test in test_rx {
-                    println!("{}", test.text());
-                }
-
-                return Ok(ExitCode::SUCCESS);
-            }
-
-            // perform fuzzy search
-            let skim_options = SkimOptionsBuilder::default()
-                .multi(false)
-                .build()
-                .expect("invalid skim options");
-            let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
-                .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
-
-            if search_result.is_abort {
-                tracing::info!("no tests selected");
-                return Ok(ExitCode::FAILURE);
-            }
-
-            let selected_items = search_result.selected_items;
-
-            if selected_items.is_empty() {
-                tracing::warn!("no tests selected");
-                return Ok(ExitCode::SUCCESS);
-            }
-
-            if selected_items.len() > 1 {
-                panic!("programming error: multiple tests selected");
-            }
-
-            let test = selected_items[0].text();
-            state.set_last_test(test.clone())?;
-            println!("{test}");
-
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::State { state_command } => match state_command {
+        Some(Command::Search(args)) => perform_search(args, state),
+        Some(Command::State { state_command }) => match state_command {
             StateCommand::Clear { all } => {
                 let cache_clear_option = if all {
                     CacheClearOption::All
@@ -357,7 +368,7 @@ fn main() -> eyre::Result<ExitCode> {
                 Ok(ExitCode::SUCCESS)
             }
         },
-        Command::Rerun { root, last } => {
+        Some(Command::Rerun { root, last }) => {
             // fetch the tests from the state using root as the key
             let search_root = if let Some(root) = root {
                 root
@@ -415,6 +426,13 @@ fn main() -> eyre::Result<ExitCode> {
                     }
                 }
                 None => eyre::bail!("No test history found for path {}", search_root.display()),
+            }
+        }
+        None => {
+            // Assume search command
+            match args.search {
+                Some(args) => perform_search(args, state),
+                None => perform_search(SearchArgs::default(), state),
             }
         }
     }
