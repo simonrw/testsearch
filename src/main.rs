@@ -42,9 +42,8 @@ struct SearchArgs {
     root: Vec<PathBuf>,
 
     /// Print results rather than using fuzzy find
-    // TODO: spelling
     #[arg(short, long)]
-    no_fizzy_selection: bool,
+    no_fuzzy_selection: bool,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -234,7 +233,7 @@ fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Resul
 fn perform_search(args: SearchArgs, mut state: State) -> eyre::Result<ExitCode> {
     let SearchArgs {
         root,
-        no_fizzy_selection,
+        no_fuzzy_selection,
     } = args;
     let (files_tx, files_rx) = unbounded();
 
@@ -282,7 +281,7 @@ fn perform_search(args: SearchArgs, mut state: State) -> eyre::Result<ExitCode> 
             }
         });
 
-    if no_fizzy_selection {
+    if no_fuzzy_selection {
         for test in test_rx {
             println!("{}", test.text());
         }
