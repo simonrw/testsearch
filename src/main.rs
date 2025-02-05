@@ -8,7 +8,7 @@ use std::{
     thread,
 };
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::eyre::{self, Context};
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -63,6 +63,12 @@ enum Command {
     State {
         #[command(subcommand)]
         state_command: StateCommand,
+    },
+    /// Generate shell completions
+    Completion {
+        /// The shell to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
     },
 }
 
@@ -328,6 +334,11 @@ fn main() -> eyre::Result<ExitCode> {
     color_eyre::install()?;
 
     let args = Args::parse();
+    // if we need to generate completions, do that early since we don't need to build the state/cache etc.
+    // which fails if we build a nix pkackage
+    if let Some(Command::Completion { shell }) = args.command {
+        return generate_completions(shell);
+    };
 
     let cache_root = dirs::cache_dir()
         .map(|p| p.join("testsearch"))
@@ -434,6 +445,7 @@ fn main() -> eyre::Result<ExitCode> {
                 None => perform_search(SearchArgs::default(), state),
             }
         }
+        Some(Command::Completion { .. }) => unreachable!("handled above"),
     }
 }
 
@@ -651,4 +663,11 @@ impl fmt::Display for TestCase {
             f.write_str(&format!("{}::{}", self.file.display(), self.name))
         }
     }
+}
+
+fn generate_completions(shell: clap_complete::Shell) -> eyre::Result<ExitCode> {
+    let mut cmd = Args::command();
+    let bin_name = cmd.get_name().to_string();
+    clap_complete::generate(shell, &mut cmd, bin_name, &mut io::stdout());
+    Ok(ExitCode::SUCCESS)
 }
