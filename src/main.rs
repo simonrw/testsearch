@@ -577,6 +577,9 @@ impl<'s> Visitor<'s> {
                     self.handle_function_definition(child, class_name.clone())?
                 }
                 "expression_statement" | "comment" | "pass_statement" => continue,
+                "class_definition" => {
+                    self.handle_class_definition(child)?
+                },
                 kind => todo!("{kind} {}", node.parent().unwrap().utf8_text(&self.bytes)?),
             }
         }
