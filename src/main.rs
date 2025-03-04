@@ -495,7 +495,7 @@ impl<'s> Visitor<'s> {
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "decorated_definition" => self.handle_decorated_definition(child, None)?,
-                "class_definition" => self.handle_class_definition(child)?,
+                "class_definition" => self.handle_class_definition(child, None)?,
                 "function_definition" => self.handle_function_definition(child, None)?,
                 "import_statement"
                 | "import_from_statement"
@@ -522,7 +522,7 @@ impl<'s> Visitor<'s> {
                 "function_definition" => {
                     self.handle_function_definition(child, class_name.clone())?
                 }
-                "class_definition" => self.handle_class_definition(child)?,
+                "class_definition" => self.handle_class_definition(child, None)?,
                 "decorator" | "comment" => continue,
                 kind => todo!("{kind}"),
             }
@@ -530,7 +530,11 @@ impl<'s> Visitor<'s> {
         Ok(())
     }
 
-    fn handle_class_definition(&mut self, node: Node) -> eyre::Result<()> {
+    fn handle_class_definition(
+        &mut self,
+        node: Node,
+        parent_class_name: Option<String>,
+    ) -> eyre::Result<()> {
         // TODO: nested classes?
         let Some(class_name_node) = node.child(1) else {
             eyre::bail!("no class name found");
@@ -545,19 +549,25 @@ impl<'s> Visitor<'s> {
 
         // TODO: can we prevent this clone?
         let bytes = self.bytes.clone();
-        let class_name = class_name_node
+        let mut class_name = class_name_node
             .utf8_text(&bytes)
-            .wrap_err("reading class name")?;
+            .wrap_err("reading class name")?.to_string();
 
         if !class_name.starts_with("Test") {
             // stop parsing
             return Ok(());
         }
 
+        if let Some(parent_class_name) = parent_class_name {
+            if parent_class_name.starts_with("Test") {
+                class_name = format!("{parent_class_name}::{class_name}");
+            }
+        }
+
         let mut cursor = node.walk();
         for child in node.children(&mut cursor).skip(2) {
             match child.kind() {
-                "block" => self.handle_class_block(child, Some(class_name.to_string()))?,
+                "block" => self.handle_class_block(child, Some(class_name.clone()))?,
                 ":" | "argument_list" | "comment" => continue,
                 kind => todo!("{kind}"),
             }
@@ -577,9 +587,7 @@ impl<'s> Visitor<'s> {
                     self.handle_function_definition(child, class_name.clone())?
                 }
                 "expression_statement" | "comment" | "pass_statement" => continue,
-                "class_definition" => {
-                    self.handle_class_definition(child)?
-                },
+                "class_definition" => self.handle_class_definition(child, class_name.clone())?,
                 kind => todo!("{kind} {}", node.parent().unwrap().utf8_text(&self.bytes)?),
             }
         }
