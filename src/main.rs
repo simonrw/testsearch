@@ -236,7 +236,11 @@ fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Resul
     Ok(())
 }
 
-fn perform_search(args: SearchArgs, mut state: State) -> eyre::Result<ExitCode> {
+fn perform_search(
+    args: SearchArgs,
+    skim_options: SkimOptions,
+    mut state: State,
+) -> eyre::Result<ExitCode> {
     let SearchArgs {
         root,
         no_fuzzy_selection,
@@ -296,10 +300,6 @@ fn perform_search(args: SearchArgs, mut state: State) -> eyre::Result<ExitCode> 
     }
 
     // perform fuzzy search
-    let skim_options = SkimOptionsBuilder::default()
-        .multi(false)
-        .build()
-        .expect("invalid skim options");
     let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
         .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
 
@@ -326,6 +326,15 @@ fn perform_search(args: SearchArgs, mut state: State) -> eyre::Result<ExitCode> 
     Ok(ExitCode::SUCCESS)
 }
 
+fn get_colour() -> eyre::Result<Option<&'static str>> {
+    use dark_light::Mode::*;
+    match dark_light::detect().context("detecting colour from system")? {
+        Dark => Ok(Some("dark")),
+        Light => Ok(Some("light")),
+        _ => Ok(None),
+    }
+}
+
 fn main() -> eyre::Result<ExitCode> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -347,8 +356,15 @@ fn main() -> eyre::Result<ExitCode> {
     let mut state = State::new(cache_root).wrap_err("constructing persistent state")?;
     state.migrate_settings().wrap_err("migrating settings")?;
 
+    let colour = get_colour().context("getting colour from system")?;
+    let skim_options = SkimOptionsBuilder::default()
+        .multi(false)
+        .color(colour)
+        .build()
+        .expect("invalid skim options");
+
     match args.command {
-        Some(Command::Search(args)) => perform_search(args, state),
+        Some(Command::Search(args)) => perform_search(args, skim_options, state),
         Some(Command::State { state_command }) => match state_command {
             StateCommand::Clear { all } => {
                 let cache_clear_option = if all {
@@ -411,11 +427,6 @@ fn main() -> eyre::Result<ExitCode> {
                             test_tx.send(item)?;
                         }
 
-                        let skim_options = SkimOptionsBuilder::default()
-                            .multi(false)
-                            .build()
-                            .expect("invalid skim options");
-
                         let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
                             .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
 
@@ -441,8 +452,8 @@ fn main() -> eyre::Result<ExitCode> {
         None => {
             // Assume search command
             match args.search {
-                Some(args) => perform_search(args, state),
-                None => perform_search(SearchArgs::default(), state),
+                Some(args) => perform_search(args, skim_options, state),
+                None => perform_search(SearchArgs::default(), skim_options, state),
             }
         }
         Some(Command::Completion { .. }) => unreachable!("handled above"),
@@ -551,7 +562,8 @@ impl<'s> Visitor<'s> {
         let bytes = self.bytes.clone();
         let mut class_name = class_name_node
             .utf8_text(&bytes)
-            .wrap_err("reading class name")?.to_string();
+            .wrap_err("reading class name")?
+            .to_string();
 
         if !class_name.starts_with("Test") {
             // stop parsing
