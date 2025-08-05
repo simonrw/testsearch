@@ -41,6 +41,7 @@ impl FromStr for CacheClearOption {
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
+#[command(version)]
 struct SearchArgs {
     /// Paths to search for tests
     #[arg(short, long)]
