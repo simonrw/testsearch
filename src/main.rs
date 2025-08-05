@@ -488,11 +488,14 @@ fn repl_loop(
                         print!("Selected test: {}\r\n", selected_test);
 
                         // Execute the test
-                        if let Err(e) = execute_test_command(command_template, &selected_test) {
-                            print!("❌ Execution failed: {}\r\n", e);
-                        } else {
-                            // Store the last executed test for rerun
-                            last_executed_test = Some(selected_test);
+                        match execute_test_command(command_template, &selected_test) {
+                            Err(e) => {
+                                print!("❌ Execution failed: {}\r\n", e);
+                            }
+                            _ => {
+                                // Store the last executed test for rerun
+                                last_executed_test = Some(selected_test);
+                            }
                         }
                     }
                     Ok(None) => {
@@ -531,7 +534,9 @@ fn repl_loop(
                         enable_raw_mode().context("re-enabling raw mode after rerun")?;
                     }
                     None => {
-                        print!("❌ No test has been executed yet. Press 'f' to find and run a test first.\r\n");
+                        print!(
+                            "❌ No test has been executed yet. Press 'f' to find and run a test first.\r\n"
+                        );
                     }
                 }
             }
@@ -557,7 +562,10 @@ fn repl_loop(
                 ..
             }) => {
                 print!("{}\r\n", c);
-                print!("Unknown command '{}'. Press 'f' to find and execute, 'r' to rerun, 'ctrl-c', 'q', or 'esc' to exit.\r\n", c);
+                print!(
+                    "Unknown command '{}'. Press 'f' to find and execute, 'r' to rerun, 'ctrl-c', 'q', or 'esc' to exit.\r\n",
+                    c
+                );
             }
             _ => {
                 // Ignore other events
@@ -709,7 +717,7 @@ struct TestHistoryEntry {
 }
 
 impl SkimItem for TestHistoryEntry {
-    fn text(&self) -> std::borrow::Cow<str> {
+    fn text(&self) -> std::borrow::Cow<'_, str> {
         Cow::Borrowed(&self.text)
     }
 }
@@ -912,7 +920,7 @@ struct TestCase {
 }
 
 impl skim::SkimItem for TestCase {
-    fn text(&self) -> std::borrow::Cow<str> {
+    fn text(&self) -> std::borrow::Cow<'_, str> {
         Cow::Owned(format!("{self}"))
     }
 }
