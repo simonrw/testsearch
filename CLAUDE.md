@@ -52,12 +52,23 @@ This is `testsearch`, a Rust CLI tool for fuzzy searching and running Python tes
 
 ### REPL Mode
 
-The `repl` command starts an interactive mode with single-keypress commands:
-- `f`: Launch fuzzy finder to select a test
-- `r`: Rerun the last selected test  
+The `repl` command starts an interactive mode with single-keypress commands and executes tests using a provided command template:
+
+**Usage:** `testsearch repl "python -m pytest -v {}"`
+
+**Commands:**
+- `f`: Launch fuzzy finder to select and execute a test
+- `r`: Rerun the last executed test  
 - `esc` or `ctrl-c`: Exit REPL gracefully
 
-REPL mode uses crossterm for cross-platform terminal input handling and maintains state between operations.
+**Command Template:**
+- Must contain `{}` placeholder which gets replaced with the selected test path
+- Example templates:
+  - `"python -m pytest -v {}"` - Run specific test with pytest
+  - `"python -m pytest {} -x"` - Stop on first failure
+  - `"coverage run -m pytest {}"` - Run with coverage
+
+REPL mode uses crossterm for cross-platform terminal input handling, temporarily disables raw mode during test execution for proper output display, and maintains state for test reruns.
 
 ## Development Notes
 
@@ -66,6 +77,7 @@ REPL mode uses crossterm for cross-platform terminal input handling and maintain
 - Error handling with `color-eyre` and `tracing` for logging
 - System integration with `dark-light` for theme detection
 - State persisted to `~/.cache/testsearch/cache.json`
+- Test by using the `--root` argument, where you can specify "/Users/simon/work/localstack/localstack"
 
 ## Dependencies
 

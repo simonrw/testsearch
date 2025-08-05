@@ -2,9 +2,9 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt, fs, io,
-    io::Write,
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
-    process::ExitCode,
+    process::{ExitCode, Stdio},
     str::FromStr,
     thread,
 };
@@ -65,7 +65,11 @@ enum Command {
         last: bool,
     },
     /// Start interactive REPL mode
-    Repl,
+    Repl {
+        /// Command template to execute tests (use {} as placeholder for test path)
+        #[arg(value_name = "COMMAND")]
+        command: String,
+    },
     /// View or manage state
     State {
         #[command(subcommand)]
@@ -247,7 +251,7 @@ fn perform_search(
     args: SearchArgs,
     skim_options: &SkimOptions,
     state: &mut State,
-) -> eyre::Result<ExitCode> {
+) -> eyre::Result<Option<String>> {
     let SearchArgs {
         root,
         no_fuzzy_selection,
@@ -303,7 +307,7 @@ fn perform_search(
             println!("{}", test.text());
         }
 
-        return Ok(ExitCode::SUCCESS);
+        return Ok(None); // No specific test selected in print mode
     }
 
     // perform fuzzy search
@@ -312,14 +316,14 @@ fn perform_search(
 
     if search_result.is_abort {
         tracing::info!("no tests selected");
-        return Ok(ExitCode::FAILURE);
+        return Ok(None);
     }
 
     let selected_items = search_result.selected_items;
 
     if selected_items.is_empty() {
         tracing::warn!("no tests selected");
-        return Ok(ExitCode::SUCCESS);
+        return Ok(None);
     }
 
     if selected_items.len() > 1 {
@@ -330,7 +334,7 @@ fn perform_search(
     state.set_last_test(test.clone())?;
     println!("{test}");
 
-    Ok(ExitCode::SUCCESS)
+    Ok(Some(test.to_string()))
 }
 
 fn get_colour() -> eyre::Result<Option<&'static str>> {
@@ -342,14 +346,15 @@ fn get_colour() -> eyre::Result<Option<&'static str>> {
     }
 }
 
-fn run_repl(mut state: State, skim_options: SkimOptions) -> eyre::Result<ExitCode> {
+fn run_repl(mut state: State, skim_options: SkimOptions, command_template: String) -> eyre::Result<ExitCode> {
     println!("🔍 testsearch REPL mode");
-    println!("Press 'f' to find test, 'r' to rerun last test, 'esc' or 'ctrl-c' to exit");
+    println!("Command template: {}", command_template);
+    println!("Press 'f' to find and execute test, 'r' to rerun last test, 'esc' or 'ctrl-c' to exit");
     println!();
 
     enable_raw_mode().context("enabling raw terminal mode")?;
 
-    let result = repl_loop(&mut state, &skim_options);
+    let result = repl_loop(&mut state, &skim_options, &command_template);
 
     // Always ensure we disable raw mode, even on error
     let _ = disable_raw_mode();
@@ -357,7 +362,89 @@ fn run_repl(mut state: State, skim_options: SkimOptions) -> eyre::Result<ExitCod
     result
 }
 
-fn repl_loop(state: &mut State, skim_options: &SkimOptions) -> eyre::Result<ExitCode> {
+fn execute_test_command(command_template: &str, test_path: &str) -> eyre::Result<()> {
+    // Validate that the command template contains the placeholder
+    if !command_template.contains("{}") {
+        eyre::bail!("Command template must contain '{{}}' placeholder for test path");
+    }
+    
+    // Replace the placeholder with the actual test path
+    let command = command_template.replace("{}", test_path);
+    
+    print!("Executing: {}\r\n", command);
+    io::stdout().flush()?;
+    
+    // Parse the command into program and arguments
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    if parts.is_empty() {
+        eyre::bail!("Empty command");
+    }
+    
+    let program = parts[0];
+    let args = &parts[1..];
+    
+    // Start the process with piped I/O for real-time output
+    let mut child = std::process::Command::new(program)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("spawning test command")?;
+    
+    // Get handles to stdout and stderr
+    let stdout = child.stdout.take().ok_or_else(|| eyre::eyre!("failed to get stdout handle"))?;
+    let stderr = child.stderr.take().ok_or_else(|| eyre::eyre!("failed to get stderr handle"))?;
+    
+    // Create readers for both streams
+    let stdout_reader = BufReader::new(stdout);
+    let stderr_reader = BufReader::new(stderr);
+    
+    // Stream stdout in real-time
+    let stdout_handle = thread::spawn(move || {
+        for line in stdout_reader.lines() {
+            match line {
+                Ok(line) => {
+                    print!("{}\r\n", line);
+                    let _ = io::stdout().flush();
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    
+    // Stream stderr in real-time
+    let stderr_handle = thread::spawn(move || {
+        for line in stderr_reader.lines() {
+            match line {
+                Ok(line) => {
+                    print!("{}\r\n", line);
+                    let _ = io::stdout().flush();
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    
+    // Wait for the process to complete
+    let status = child.wait().context("waiting for test command to complete")?;
+    
+    // Wait for output threads to finish
+    let _ = stdout_handle.join();
+    let _ = stderr_handle.join();
+    
+    if status.success() {
+        print!("✅ Test execution completed successfully\r\n");
+    } else {
+        print!("❌ Test execution failed (exit code: {})\r\n", 
+               status.code().unwrap_or(-1));
+    }
+    
+    io::stdout().flush()?;
+    Ok(())
+}
+
+fn repl_loop(state: &mut State, skim_options: &SkimOptions, command_template: &str) -> eyre::Result<ExitCode> {
+    let mut last_executed_test: Option<String> = None;
     loop {
         print!("testsearch> ");
         io::stdout().flush().context("flushing stdout")?;
@@ -368,32 +455,59 @@ fn repl_loop(state: &mut State, skim_options: &SkimOptions) -> eyre::Result<Exit
                 modifiers: KeyModifiers::NONE,
                 ..
             }) => {
-                println!("f");
-                println!("🔍 Finding tests...");
+                print!("f\r\n");
+                print!("🔍 Finding and executing test...\r\n");
+                io::stdout().flush()?;
                 
-                // Perform search using existing logic
-                match perform_search(SearchArgs::default(), skim_options, state) {
-                    Ok(_) => println!("✅ Search completed"),
+                // Temporarily disable raw mode for skim
+                disable_raw_mode().context("disabling raw mode for search")?;
+                let search_result = perform_search(SearchArgs::default(), skim_options, state);
+                
+                match search_result {
+                    Ok(Some(selected_test)) => {
+                        print!("Selected test: {}\r\n", selected_test);
+                        
+                        // Execute the test
+                        if let Err(e) = execute_test_command(command_template, &selected_test) {
+                            print!("❌ Execution failed: {}\r\n", e);
+                        } else {
+                            // Store the last executed test for rerun
+                            last_executed_test = Some(selected_test);
+                        }
+                    }
+                    Ok(None) => {
+                        print!("❌ No test was selected\r\n");
+                    }
                     Err(e) => {
-                        println!("❌ Search failed: {}", e);
-                        continue;
+                        print!("❌ Search failed: {}\r\n", e);
                     }
                 }
+                
+                enable_raw_mode().context("re-enabling raw mode after search")?;
             }
             Event::Key(KeyEvent {
                 code: KeyCode::Char('r'),
                 modifiers: KeyModifiers::NONE,
                 ..
             }) => {
-                println!("r");
-                println!("🔄 Rerunning last test...");
+                print!("r\r\n");
+                print!("🔄 Rerunning last test...\r\n");
+                io::stdout().flush()?;
                 
-                // Rerun last test using existing logic
-                match rerun_test(None, true, state, skim_options) {
-                    Ok(_) => println!("✅ Rerun completed"),
-                    Err(e) => {
-                        println!("❌ Rerun failed: {}", e);
-                        continue;
+                match &last_executed_test {
+                    Some(test_path) => {
+                        // Temporarily disable raw mode for test execution
+                        disable_raw_mode().context("disabling raw mode for rerun")?;
+                        
+                        print!("Rerunning: {}\r\n", test_path);
+                        if let Err(e) = execute_test_command(command_template, test_path) {
+                            print!("❌ Rerun failed: {}\r\n", e);
+                        }
+                        
+                        enable_raw_mode().context("re-enabling raw mode after rerun")?;
+                    }
+                    None => {
+                        print!("❌ No test has been executed yet. Press 'f' to find and run a test first.\r\n");
                     }
                 }
             }
@@ -405,8 +519,8 @@ fn repl_loop(state: &mut State, skim_options: &SkimOptions) -> eyre::Result<Exit
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => {
-                println!();
-                println!("👋 Goodbye!");
+                print!("\r\n");
+                print!("👋 Goodbye!\r\n");
                 return Ok(ExitCode::SUCCESS);
             }
             Event::Key(KeyEvent {
@@ -414,14 +528,15 @@ fn repl_loop(state: &mut State, skim_options: &SkimOptions) -> eyre::Result<Exit
                 modifiers: KeyModifiers::NONE,
                 ..
             }) => {
-                println!("{}", c);
-                println!("Unknown command '{}'. Press 'f' to find, 'r' to rerun, 'esc' to exit.", c);
+                print!("{}\r\n", c);
+                print!("Unknown command '{}'. Press 'f' to find and execute, 'r' to rerun, 'esc' to exit.\r\n", c);
             }
             _ => {
                 // Ignore other events
             }
         }
-        println!();
+        print!("\r\n");
+        io::stdout().flush()?;
     }
 }
 
@@ -515,8 +630,13 @@ fn main() -> eyre::Result<ExitCode> {
         .expect("invalid skim options");
 
     match args.command {
-        Some(Command::Search(args)) => perform_search(args, &skim_options, &mut state),
-        Some(Command::Repl) => run_repl(state, skim_options),
+        Some(Command::Search(args)) => {
+            match perform_search(args, &skim_options, &mut state)? {
+                Some(_) => Ok(ExitCode::SUCCESS),
+                None => Ok(ExitCode::SUCCESS),  // No test selected is not an error
+            }
+        }
+        Some(Command::Repl { command }) => run_repl(state, skim_options, command),
         Some(Command::State { state_command }) => match state_command {
             StateCommand::Clear { all } => {
                 let cache_clear_option = if all {
@@ -549,9 +669,10 @@ fn main() -> eyre::Result<ExitCode> {
         Some(Command::Rerun { root, last }) => rerun_test(root, last, &state, &skim_options),
         None => {
             // Assume search command
-            match args.search {
-                Some(args) => perform_search(args, &skim_options, &mut state),
-                None => perform_search(SearchArgs::default(), &skim_options, &mut state),
+            let search_args = args.search.unwrap_or_default();
+            match perform_search(search_args, &skim_options, &mut state)? {
+                Some(_) => Ok(ExitCode::SUCCESS),
+                None => Ok(ExitCode::SUCCESS),  // No test selected is not an error
             }
         }
         Some(Command::Completion { .. }) => unreachable!("handled above"),
