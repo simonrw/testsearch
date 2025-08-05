@@ -393,6 +393,10 @@ fn execute_test_command(command_template: &str, test_path: &str) -> eyre::Result
     // Start the process with piped I/O for real-time output
     let mut child = std::process::Command::new(program)
         .args(args)
+        .env("FORCE_COLOR", "1")
+        .env("PY_COLORS", "1")
+        .env("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "0")
+        .env("TERM", "xterm-256color")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
