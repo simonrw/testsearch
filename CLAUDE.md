@@ -45,9 +45,19 @@ This is `testsearch`, a Rust CLI tool for fuzzy searching and running Python tes
 ### Command Structure
 
 - `search`: Find and select tests interactively (default command)
+- `repl`: Start interactive REPL mode with single-key commands
 - `rerun`: Re-run previous tests from history
 - `state`: Manage persistent state (show/clear)
 - `completion`: Generate shell completions
+
+### REPL Mode
+
+The `repl` command starts an interactive mode with single-keypress commands:
+- `f`: Launch fuzzy finder to select a test
+- `r`: Rerun the last selected test  
+- `esc` or `ctrl-c`: Exit REPL gracefully
+
+REPL mode uses crossterm for cross-platform terminal input handling and maintains state between operations.
 
 ## Development Notes
 

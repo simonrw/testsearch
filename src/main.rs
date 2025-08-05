@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt, fs, io,
+    io::Write,
     path::{Path, PathBuf},
     process::ExitCode,
     str::FromStr,
@@ -10,6 +11,10 @@ use std::{
 
 use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::eyre::{self, Context};
+use crossterm::{
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -59,6 +64,8 @@ enum Command {
         #[arg(short, long)]
         last: bool,
     },
+    /// Start interactive REPL mode
+    Repl,
     /// View or manage state
     State {
         #[command(subcommand)]
@@ -238,8 +245,8 @@ fn find_test_files(root: impl AsRef<Path>, chan: Sender<PathBuf>) -> eyre::Resul
 
 fn perform_search(
     args: SearchArgs,
-    skim_options: SkimOptions,
-    mut state: State,
+    skim_options: &SkimOptions,
+    state: &mut State,
 ) -> eyre::Result<ExitCode> {
     let SearchArgs {
         root,
@@ -335,6 +342,150 @@ fn get_colour() -> eyre::Result<Option<&'static str>> {
     }
 }
 
+fn run_repl(mut state: State, skim_options: SkimOptions) -> eyre::Result<ExitCode> {
+    println!("🔍 testsearch REPL mode");
+    println!("Press 'f' to find test, 'r' to rerun last test, 'esc' or 'ctrl-c' to exit");
+    println!();
+
+    enable_raw_mode().context("enabling raw terminal mode")?;
+
+    let result = repl_loop(&mut state, &skim_options);
+
+    // Always ensure we disable raw mode, even on error
+    let _ = disable_raw_mode();
+
+    result
+}
+
+fn repl_loop(state: &mut State, skim_options: &SkimOptions) -> eyre::Result<ExitCode> {
+    loop {
+        print!("testsearch> ");
+        io::stdout().flush().context("flushing stdout")?;
+
+        match event::read().context("reading terminal event")? {
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('f'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                println!("f");
+                println!("🔍 Finding tests...");
+                
+                // Perform search using existing logic
+                match perform_search(SearchArgs::default(), skim_options, state) {
+                    Ok(_) => println!("✅ Search completed"),
+                    Err(e) => {
+                        println!("❌ Search failed: {}", e);
+                        continue;
+                    }
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('r'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                println!("r");
+                println!("🔄 Rerunning last test...");
+                
+                // Rerun last test using existing logic
+                match rerun_test(None, true, state, skim_options) {
+                    Ok(_) => println!("✅ Rerun completed"),
+                    Err(e) => {
+                        println!("❌ Rerun failed: {}", e);
+                        continue;
+                    }
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Esc, ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            }) => {
+                println!();
+                println!("👋 Goodbye!");
+                return Ok(ExitCode::SUCCESS);
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                println!("{}", c);
+                println!("Unknown command '{}'. Press 'f' to find, 'r' to rerun, 'esc' to exit.", c);
+            }
+            _ => {
+                // Ignore other events
+            }
+        }
+        println!();
+    }
+}
+
+fn rerun_test(
+    root: Option<PathBuf>,
+    last: bool,
+    state: &State,
+    skim_options: &SkimOptions,
+) -> eyre::Result<ExitCode> {
+    // fetch the tests from the state using root as the key
+    let search_root = if let Some(root) = root {
+        root
+    } else {
+        current_dir()?
+    };
+
+    let history = state.persisted.history(search_root.clone());
+    match history {
+        Some(history) => {
+            if last {
+                // pick last test from history
+                match history.last() {
+                    Some(last_test) => {
+                        println!("{}", last_test);
+                        Ok(ExitCode::SUCCESS)
+                    }
+                    None => {
+                        eyre::bail!(
+                            "No test history found for path {}",
+                            search_root.display()
+                        )
+                    }
+                }
+            } else {
+                // perform fuzzy search through history
+                let (test_tx, test_rx) = unbounded();
+                for test in history {
+                    let item: Arc<dyn SkimItem> = Arc::new(TestHistoryEntry { text: test });
+                    test_tx.send(item)?;
+                }
+
+                let search_result = skim::Skim::run_with(skim_options, Some(test_rx))
+                    .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
+
+                if search_result.is_abort {
+                    tracing::info!("no tests selected");
+                    return Ok(ExitCode::SUCCESS);
+                }
+
+                let selected_items = search_result.selected_items;
+                if selected_items.is_empty() {
+                    tracing::warn!("no tests selected");
+                    return Ok(ExitCode::SUCCESS);
+                }
+
+                let test = selected_items[0].text();
+                println!("{}", test);
+                Ok(ExitCode::SUCCESS)
+            }
+        }
+        None => eyre::bail!("No test history found for path {}", search_root.display()),
+    }
+}
+
 fn main() -> eyre::Result<ExitCode> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -364,7 +515,8 @@ fn main() -> eyre::Result<ExitCode> {
         .expect("invalid skim options");
 
     match args.command {
-        Some(Command::Search(args)) => perform_search(args, skim_options, state),
+        Some(Command::Search(args)) => perform_search(args, &skim_options, &mut state),
+        Some(Command::Repl) => run_repl(state, skim_options),
         Some(Command::State { state_command }) => match state_command {
             StateCommand::Clear { all } => {
                 let cache_clear_option = if all {
@@ -394,66 +546,12 @@ fn main() -> eyre::Result<ExitCode> {
                 Ok(ExitCode::SUCCESS)
             }
         },
-        Some(Command::Rerun { root, last }) => {
-            // fetch the tests from the state using root as the key
-            let search_root = if let Some(root) = root {
-                root
-            } else {
-                current_dir()?
-            };
-
-            let history = state.persisted.history(search_root.clone());
-            match history {
-                Some(history) => {
-                    if last {
-                        // pick last test from history
-                        match history.last() {
-                            Some(last_test) => {
-                                println!("{}", last_test);
-                                Ok(ExitCode::SUCCESS)
-                            }
-                            None => {
-                                eyre::bail!(
-                                    "No test history found for path {}",
-                                    search_root.display()
-                                )
-                            }
-                        }
-                    } else {
-                        // perform fuzzy search through history
-                        let (test_tx, test_rx) = unbounded();
-                        for test in history {
-                            let item: Arc<dyn SkimItem> = Arc::new(TestHistoryEntry { text: test });
-                            test_tx.send(item)?;
-                        }
-
-                        let search_result = skim::Skim::run_with(&skim_options, Some(test_rx))
-                            .ok_or_else(|| eyre::eyre!("performing interactive search"))?;
-
-                        if search_result.is_abort {
-                            tracing::info!("no tests selected");
-                            return Ok(ExitCode::SUCCESS);
-                        }
-
-                        let selected_items = search_result.selected_items;
-                        if selected_items.is_empty() {
-                            tracing::warn!("no tests selected");
-                            return Ok(ExitCode::SUCCESS);
-                        }
-
-                        let test = selected_items[0].text();
-                        println!("{}", test);
-                        Ok(ExitCode::SUCCESS)
-                    }
-                }
-                None => eyre::bail!("No test history found for path {}", search_root.display()),
-            }
-        }
+        Some(Command::Rerun { root, last }) => rerun_test(root, last, &state, &skim_options),
         None => {
             // Assume search command
             match args.search {
-                Some(args) => perform_search(args, skim_options, state),
-                None => perform_search(SearchArgs::default(), skim_options, state),
+                Some(args) => perform_search(args, &skim_options, &mut state),
+                None => perform_search(SearchArgs::default(), &skim_options, &mut state),
             }
         }
         Some(Command::Completion { .. }) => unreachable!("handled above"),
