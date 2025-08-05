@@ -17,6 +17,7 @@ use crossterm::{
 };
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rustyline::DefaultEditor;
 use serde::{Deserialize, Serialize};
 use skim::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -355,7 +356,7 @@ fn run_repl(
     println!("🔍 testsearch REPL mode");
     println!("Command template: {}", command_template);
     println!(
-        "Press 'f' to find and execute test, 'r' to rerun last test, 'ctrl-c', 'q', or 'esc' to exit"
+        "Press 'f' to find and execute test, 'e' to edit command before execution, 'r' to rerun last test, 'ctrl-c', 'q', or 'esc' to exit"
     );
     println!();
 
@@ -378,6 +379,128 @@ fn execute_test_command(command_template: &str, test_path: &str) -> eyre::Result
     // Replace the placeholder with the actual test path
     let command = command_template.replace("{}", test_path);
 
+    print!("Executing: {}\r\n", command);
+    io::stdout().flush()?;
+
+    // Parse the command into program and arguments
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    if parts.is_empty() {
+        eyre::bail!("Empty command");
+    }
+
+    let program = parts[0];
+    let args = &parts[1..];
+
+    // Start the process with piped I/O for real-time output
+    let mut child = std::process::Command::new(program)
+        .args(args)
+        .env("FORCE_COLOR", "1")
+        .env("PY_COLORS", "1")
+        .env("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "0")
+        .env("TERM", "xterm-256color")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("spawning test command")?;
+
+    // Get handles to stdout and stderr
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| eyre::eyre!("failed to get stdout handle"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| eyre::eyre!("failed to get stderr handle"))?;
+
+    // Create readers for both streams
+    let stdout_reader = BufReader::new(stdout);
+    let stderr_reader = BufReader::new(stderr);
+
+    // Stream stdout in real-time
+    let stdout_handle = thread::spawn(move || {
+        for line in stdout_reader.lines() {
+            match line {
+                Ok(line) => {
+                    print!("{}\r\n", line);
+                    let _ = io::stdout().flush();
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Stream stderr in real-time
+    let stderr_handle = thread::spawn(move || {
+        for line in stderr_reader.lines() {
+            match line {
+                Ok(line) => {
+                    print!("{}\r\n", line);
+                    let _ = io::stdout().flush();
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Wait for the process to complete
+    let status = child
+        .wait()
+        .context("waiting for test command to complete")?;
+
+    // Wait for output threads to finish
+    let _ = stdout_handle.join();
+    let _ = stderr_handle.join();
+
+    if status.success() {
+        print!("✅ Test execution completed successfully\r\n");
+    } else {
+        print!(
+            "❌ Test execution failed (exit code: {})\r\n",
+            status.code().unwrap_or(-1)
+        );
+    }
+
+    io::stdout().flush()?;
+    Ok(())
+}
+
+fn edit_command_for_test(command_template: &str, test_path: &str) -> eyre::Result<String> {
+    // Create the default command by filling in the template
+    let default_command = command_template.replace("{}", test_path);
+    
+    // Create a rustyline editor
+    let mut rl = DefaultEditor::new().context("creating rustyline editor")?;
+    
+    // Read the edited command from user
+    let prompt = "Edit command: ";
+    let readline = rl.readline_with_initial(prompt, (&default_command, ""));
+    
+    match readline {
+        Ok(edited_command) => {
+            if !edited_command.trim().is_empty() {
+                rl.add_history_entry(&edited_command).context("adding to history")?;
+                Ok(edited_command)
+            } else {
+                // If user entered empty command, use the default
+                Ok(default_command)
+            }
+        }
+        Err(rustyline::error::ReadlineError::Interrupted) => {
+            // User pressed Ctrl-C, cancel the operation
+            eyre::bail!("Command editing cancelled")
+        }
+        Err(rustyline::error::ReadlineError::Eof) => {
+            // User pressed Ctrl-D, use the default command
+            Ok(default_command)
+        }
+        Err(err) => {
+            eyre::bail!("Error reading command: {}", err)
+        }
+    }
+}
+
+fn execute_raw_command(command: &str) -> eyre::Result<()> {
     print!("Executing: {}\r\n", command);
     io::stdout().flush()?;
 
@@ -514,6 +637,54 @@ fn repl_loop(
                 enable_raw_mode().context("re-enabling raw mode after search")?;
             }
             Event::Key(KeyEvent {
+                code: KeyCode::Char('e'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                print!("e\r\n");
+                print!("✏️ Finding test and editing command...\r\n");
+                io::stdout().flush()?;
+
+                // Temporarily disable raw mode for skim
+                disable_raw_mode().context("disabling raw mode for search")?;
+                let search_result = perform_search(SearchArgs::default(), skim_options, state);
+
+                match search_result {
+                    Ok(Some(selected_test)) => {
+                        print!("Selected test: {}\r\n", selected_test);
+
+                        // Edit the command for this test
+                        match edit_command_for_test(command_template, &selected_test) {
+                            Ok(edited_command) => {
+                                print!("Edited command: {}\r\n", edited_command);
+                                
+                                // Execute the edited command
+                                match execute_raw_command(&edited_command) {
+                                    Err(e) => {
+                                        print!("❌ Execution failed: {}\r\n", e);
+                                    }
+                                    _ => {
+                                        // Store the selected test (not the command) as the last executed test for rerun
+                                        last_executed_test = Some(selected_test);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                print!("❌ Command editing failed: {}\r\n", e);
+                            }
+                        }
+                    }
+                    Ok(None) => {
+                        print!("❌ No test was selected\r\n");
+                    }
+                    Err(e) => {
+                        print!("❌ Search failed: {}\r\n", e);
+                    }
+                }
+
+                enable_raw_mode().context("re-enabling raw mode after search")?;
+            }
+            Event::Key(KeyEvent {
                 code: KeyCode::Char('r'),
                 modifiers: KeyModifiers::NONE,
                 ..
@@ -568,7 +739,7 @@ fn repl_loop(
             }) => {
                 print!("{}\r\n", c);
                 print!(
-                    "Unknown command '{}'. Press 'f' to find and execute, 'r' to rerun, 'ctrl-c', 'q', or 'esc' to exit.\r\n",
+                    "Unknown command '{}'. Press 'f' to find and execute, 'e' to edit command, 'r' to rerun, 'ctrl-c', 'q', or 'esc' to exit.\r\n",
                     c
                 );
             }

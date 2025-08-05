@@ -1,6 +1,6 @@
 [package]
 name = "testsearch"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [dependencies]
@@ -19,3 +19,4 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
 tree-sitter = "0.23.2"
 tree-sitter-python = "0.23.2"
+rustyline = "17.0.0"
