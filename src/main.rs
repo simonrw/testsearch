@@ -509,6 +509,10 @@ fn repl_loop(
                 code: KeyCode::Char('r'),
                 modifiers: KeyModifiers::NONE,
                 ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                ..
             }) => {
                 print!("r\r\n");
                 print!("🔄 Rerunning last test...\r\n");
