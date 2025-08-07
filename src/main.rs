@@ -468,18 +468,19 @@ fn execute_test_command(command_template: &str, test_path: &str) -> eyre::Result
 fn edit_command_for_test(command_template: &str, test_path: &str) -> eyre::Result<String> {
     // Create the default command by filling in the template
     let default_command = command_template.replace("{}", test_path);
-    
+
     // Create a rustyline editor
     let mut rl = DefaultEditor::new().context("creating rustyline editor")?;
-    
+
     // Read the edited command from user
     let prompt = "Edit command: ";
     let readline = rl.readline_with_initial(prompt, (&default_command, ""));
-    
+
     match readline {
         Ok(edited_command) => {
             if !edited_command.trim().is_empty() {
-                rl.add_history_entry(&edited_command).context("adding to history")?;
+                rl.add_history_entry(&edited_command)
+                    .context("adding to history")?;
                 Ok(edited_command)
             } else {
                 // If user entered empty command, use the default
@@ -657,7 +658,7 @@ fn repl_loop(
                         match edit_command_for_test(command_template, &selected_test) {
                             Ok(edited_command) => {
                                 print!("Edited command: {}\r\n", edited_command);
-                                
+
                                 // Execute the edited command
                                 match execute_raw_command(&edited_command) {
                                     Err(e) => {
@@ -943,7 +944,7 @@ impl<'s> Visitor<'s> {
                 | "if_statement"
                 | "try_statement"
                 | "assert_statement" => continue,
-                kind => todo!("{kind}"),
+                kind => todo!("{kind} for file {}", self.filename.display()),
             }
         }
 
