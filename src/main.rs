@@ -17,6 +17,7 @@ use crossterm::{
 };
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use regex::Regex;
 use rustyline::DefaultEditor;
 use serde::{Deserialize, Serialize};
 use skim::prelude::*;
@@ -71,6 +72,18 @@ enum Command {
         /// Command template to execute tests (use {} as placeholder for test path)
         #[arg(value_name = "COMMAND")]
         command: String,
+    },
+    /// Search for tests containing specific function calls
+    Grep {
+        /// Regular expression pattern to search for in test function bodies
+        pattern: String,
+
+        /// Command template to execute matching tests (use {} as placeholder for test path)
+        #[arg(long)]
+        run: Option<String>,
+
+        #[command(flatten)]
+        search_args: SearchArgs,
     },
     /// View or manage state
     State {
@@ -337,6 +350,88 @@ fn perform_search(
     println!("{test}");
 
     Ok(Some(test.to_string()))
+}
+
+fn perform_grep_search(
+    pattern: String,
+    args: SearchArgs,
+    run_command: Option<String>,
+) -> eyre::Result<()> {
+    // Compile the regex pattern
+    let regex =
+        Regex::new(&pattern).wrap_err_with(|| format!("compiling regex pattern: {}", pattern))?;
+
+    let (files_tx, files_rx) = unbounded();
+
+    // Use provided roots or default to current working directory
+    let search_roots = if args.root.is_empty() {
+        let here = current_dir()?;
+        vec![here]
+    } else {
+        args.root
+    };
+
+    let mut file_handles = Vec::new();
+    for path in search_roots {
+        let span = tracing::debug_span!("", path = %path.display());
+        let _guard = span.enter();
+
+        tracing::debug!("listing files");
+
+        let files_tx = files_tx.clone();
+        file_handles.push(thread::spawn(move || {
+            if let Err(e) = find_test_files(&path, files_tx) {
+                tracing::warn!(error = %e, path = %path.display(), "finding test files");
+            }
+        }));
+    }
+    drop(files_tx);
+
+    for handle in file_handles {
+        let _ = handle.join();
+    }
+
+    let files: Vec<_> = files_rx.into_iter().collect();
+    if files.is_empty() {
+        eyre::bail!("No compatible test files found");
+    }
+
+    tracing::debug!(n = files.len(), "finished collecting files");
+
+    let (test_tx, test_rx) = unbounded();
+    files
+        .into_par_iter()
+        .for_each_with(test_tx, |sender, path| {
+            if let Err(e) = parse_file_with_regex(sender, &path, Some(&regex)) {
+                tracing::warn!(error = %e, path = %path.display(), "error parsing file for grep");
+            }
+        });
+
+    let matching_tests: Vec<_> = test_rx.into_iter().collect();
+
+    if matching_tests.is_empty() {
+        println!("No tests found matching pattern: {}", pattern);
+        return Ok(());
+    }
+
+    // Print all matching test node IDs
+    for test in &matching_tests {
+        println!("{}", test.text());
+    }
+
+    // If run command is provided, execute the tests
+    if let Some(command_template) = run_command {
+        println!("\nExecuting matching tests...\n");
+
+        for test in matching_tests {
+            let test_path = test.text();
+            if let Err(e) = execute_test_command(&command_template, &test_path) {
+                eprintln!("❌ Execution failed for {}: {}", test_path, e);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn get_colour() -> eyre::Result<Option<&'static str>> {
@@ -846,6 +941,14 @@ fn main() -> eyre::Result<ExitCode> {
                 None => Ok(ExitCode::SUCCESS), // No test selected is not an error
             }
         }
+        Some(Command::Grep {
+            pattern,
+            run,
+            search_args,
+        }) => {
+            perform_grep_search(pattern, search_args, run)?;
+            Ok(ExitCode::SUCCESS)
+        }
         Some(Command::Repl { command }) => run_repl(state, skim_options, command),
         Some(Command::State { state_command }) => match state_command {
             StateCommand::Clear { all } => {
@@ -903,18 +1006,21 @@ struct Visitor<'s> {
     filename: &'s Path,
     sender: &'s mut skim::prelude::Sender<Arc<dyn SkimItem>>,
     bytes: Vec<u8>,
+    regex: Option<&'s Regex>,
 }
 
 impl<'s> Visitor<'s> {
     pub fn new(
         filename: &'s Path,
         sender: &'s mut skim::prelude::Sender<Arc<dyn SkimItem>>,
+        regex: Option<&'s Regex>,
     ) -> eyre::Result<Self> {
         let bytes = fs::read(filename).wrap_err("reading file")?;
         Ok(Self {
             filename,
             sender,
             bytes,
+            regex,
         })
     }
 
@@ -1053,6 +1159,16 @@ impl<'s> Visitor<'s> {
             return Ok(());
         }
 
+        // If regex is provided, check if the function body matches the pattern
+        if let Some(regex) = self.regex {
+            let function_text = node.utf8_text(&bytes)
+                .wrap_err("reading function body")?;
+            
+            if !regex.is_match(function_text) {
+                return Ok(());
+            }
+        }
+
         self.emit(identifier, class_name)
             .wrap_err("sending test case")?;
 
@@ -1080,14 +1196,27 @@ impl<'s> Visitor<'s> {
     }
 }
 
+
+
 fn parse_file(
     sender: &mut skim::prelude::Sender<Arc<dyn SkimItem>>,
     path: &Path,
 ) -> eyre::Result<()> {
-    let mut visitor = Visitor::new(path, sender).wrap_err("creating visitor")?;
+    let mut visitor = Visitor::new(path, sender, None).wrap_err("creating visitor")?;
     visitor.visit().wrap_err("parsing file")?;
     Ok(())
 }
+
+fn parse_file_with_regex(
+    sender: &mut skim::prelude::Sender<Arc<dyn SkimItem>>,
+    path: &Path,
+    regex: Option<&Regex>,
+) -> eyre::Result<()> {
+    let mut visitor = Visitor::new(path, sender, regex).wrap_err("creating visitor")?;
+    visitor.visit().wrap_err("parsing file")?;
+    Ok(())
+}
+
 
 #[derive(Debug)]
 struct TestCase {

@@ -2170,6 +2170,7 @@ dependencies = [
  "dirs",
  "ignore",
  "rayon",
+ "regex",
  "rustyline",
  "serde",
  "serde_json",
