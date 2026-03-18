@@ -1045,6 +1045,7 @@ impl<'s> Visitor<'s> {
                 "function_definition" => self.handle_function_definition(child, None)?,
                 "import_statement"
                 | "import_from_statement"
+                | "future_import_statement"
                 | "expression_statement"
                 | "comment"
                 | "if_statement"
