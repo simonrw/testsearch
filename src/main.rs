@@ -436,7 +436,7 @@ fn perform_grep_search(
 
 fn get_colour() -> eyre::Result<Option<&'static str>> {
     use dark_light::Mode::*;
-    match dark_light::detect().context("detecting colour from system")? {
+    match dark_light::detect().unwrap_or(Dark) {
         Dark => Ok(Some("dark")),
         Light => Ok(Some("light")),
         _ => Ok(None),
@@ -1162,9 +1162,8 @@ impl<'s> Visitor<'s> {
 
         // If regex is provided, check if the function body matches the pattern
         if let Some(regex) = self.regex {
-            let function_text = node.utf8_text(&bytes)
-                .wrap_err("reading function body")?;
-            
+            let function_text = node.utf8_text(&bytes).wrap_err("reading function body")?;
+
             if !regex.is_match(function_text) {
                 return Ok(());
             }
@@ -1197,8 +1196,6 @@ impl<'s> Visitor<'s> {
     }
 }
 
-
-
 fn parse_file(
     sender: &mut skim::prelude::Sender<Arc<dyn SkimItem>>,
     path: &Path,
@@ -1217,7 +1214,6 @@ fn parse_file_with_regex(
     visitor.visit().wrap_err("parsing file")?;
     Ok(())
 }
-
 
 #[derive(Debug)]
 struct TestCase {
